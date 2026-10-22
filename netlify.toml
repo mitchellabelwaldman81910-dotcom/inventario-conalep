@@ -1,0 +1,19 @@
+# Sitio del inventario CONALEP. No lleva compilación: solo páginas + servidor (functions).
+[build]
+  publish = "public"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[functions]
+  directory = "netlify/functions"
+  # los datos iniciales viven en seed/ (fuera de public/, nunca se sirven como archivos)
+  included_files = ["seed/**"]
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "no-referrer"
+    X-Content-Type-Options = "nosniff"
