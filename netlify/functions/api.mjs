@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 export const config = { path: "/api/*" };
 
-const COLS = new Set(["inv", "cambios", "marcas"]);
+const COLS = new Set(["inv", "cambios", "marcas", "fotos"]);
 const ID_RE = /^[A-Za-z0-9_-]{1,80}$/;
 const NB = 64;
 const TTL = 14 * 24 * 3600 * 1000; // la sesión dura 14 días
@@ -170,6 +170,8 @@ async function dbOp(s, user, b) {
     const d = await getDoc(s, p.key);
     return json({ exists: !!d, data: d || null });
   }
+  if ((op === "delete" || op === "set" || op === "update") && p.col === "fotos")
+    return fail(403, "forbidden", "Las fotos se suben con la opción de fotos");
   if (op === "delete") {
     await s.delete(p.key);
     return json({ ok: true, ...(await bump(s, p.col)) });
@@ -183,8 +185,24 @@ async function dbOp(s, user, b) {
       data.by = user.id;
       data.at = Date.now();
     }
-    if (p.col === "marcas" && isObj(data.marks)) {
-      for (const m of Object.values(data.marks)) if (isObj(m)) { m.by = user.id; m.at = Date.now(); }
+    if (p.col === "marcas") {
+      // solo se sella lo nuevo o lo que cambió: lo que ya estaba conserva su autor y su hora originales
+      const cur = (await getDoc(s, p.key)) || {};
+      const now = Date.now();
+      for (const k of ["marks", "extras"]) {
+        if (!isObj(data[k])) continue;
+        for (const [t, m] of Object.entries(data[k])) {
+          if (!isObj(m)) continue;
+          const c = cur[k]?.[t];
+          if (isObj(c) && c.e === m.e && (k === "extras" || c.at)) { m.by = c.by; m.at = c.at; }
+          else { m.by = user.id; m.at = now; }
+        }
+      }
+      if (isObj(data.fin)) {
+        const c = cur.fin;
+        if (isObj(c) && c.t === data.fin.t) { data.fin.by = c.by; data.fin.at = c.at; }
+        else { data.fin.by = user.id; data.fin.at = now; }
+      }
     }
     let out;
     if (op === "set") out = data;
@@ -209,6 +227,48 @@ async function itemOp(s, b) {
   const row = bucket?.items?.[tok];
   if (!meta || !row) return json({ found: false });
   return json({ found: true, h: meta.h, row });
+}
+
+/* ---------- fotos (JPEG en Blobs; el índice por artículo vive en la colección "fotos") ---------- */
+const TOK_RE = /^m[A-Za-z0-9]{1,40}$/, FID_RE = /^[A-Za-z0-9_-]{6,40}$/;
+async function fotoPut(s, user, b) {
+  const tok = String(b.tok || ""), id = String(b.id || "");
+  if (!TOK_RE.test(tok) || !FID_RE.test(id)) return fail(400, "invalid_argument", "Datos no válidos");
+  const b64 = String(b.data || "").replace(/^data:image\/jpeg;base64,/, "");
+  if (b64.length > 2_200_000) return fail(413, "quota_exceeded", "La foto es demasiado grande");
+  const bytes = Buffer.from(b64, "base64");
+  if (bytes.length < 100 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff)
+    return fail(400, "invalid_argument", "Solo se aceptan fotos JPEG");
+  await seedIfEmpty(s);
+  const bucket = await getDoc(s, "inv/" + bucketOf(tok));
+  if (!bucket?.items?.[tok]) return fail(404, "not_found", "Ese marbete no existe");
+  const key = "fotos/" + tok;
+  const idx = (await getDoc(s, key)) || { list: [] };
+  if (idx.list.some((f) => f.id === id)) return json({ ok: true, dup: true, n: idx.list.length });
+  await s.set("fotob/" + tok + "/" + id, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+  idx.list.push({ id, at: Date.now(), by: user.id });
+  idx.n = idx.list.length;
+  await s.setJSON(key, idx);
+  return json({ ok: true, n: idx.n, ...(await bump(s, "fotos")) });
+}
+async function fotoGet(s, b) {
+  const tok = String(b.tok || ""), id = String(b.id || "");
+  if (!TOK_RE.test(tok) || !FID_RE.test(id)) return fail(400, "invalid_argument", "Datos no válidos");
+  const buf = await s.get("fotob/" + tok + "/" + id, { type: "arrayBuffer" });
+  if (!buf) return fail(404, "not_found", "No existe esa foto");
+  return new Response(buf, { status: 200, headers: { "content-type": "image/jpeg", "cache-control": "private, max-age=3600" } });
+}
+async function fotoDel(s, user, b) {
+  if (!user.admin) return fail(403, "forbidden", "Solo el administrador puede borrar fotos");
+  const tok = String(b.tok || ""), id = String(b.id || "");
+  if (!TOK_RE.test(tok) || !FID_RE.test(id)) return fail(400, "invalid_argument", "Datos no válidos");
+  const key = "fotos/" + tok, idx = await getDoc(s, key);
+  if (!idx) return json({ ok: true });
+  idx.list = idx.list.filter((f) => f.id !== id);
+  idx.n = idx.list.length;
+  await s.setJSON(key, idx);
+  await s.delete("fotob/" + tok + "/" + id);
+  return json({ ok: true, n: idx.n, ...(await bump(s, "fotos")) });
 }
 
 /* ---------- entrada ---------- */
@@ -253,6 +313,9 @@ export default async (req) => {
     if (route === "me") return json({ user: user.id });
     if (route === "db") return await dbOp(s, user, body);
     if (route === "item") return await itemOp(s, body);
+    if (route === "foto-put") return await fotoPut(s, user, body);
+    if (route === "foto-get") return await fotoGet(s, body);
+    if (route === "foto-del") return await fotoDel(s, user, body);
     if (route === "seed") {
       if (!user.admin) return fail(403, "forbidden", "Solo el administrador");
       return json(await seedIfEmpty(s));

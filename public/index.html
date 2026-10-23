@@ -107,6 +107,16 @@ th{white-space:normal}
 .pill{font-size:.7rem;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:4px 10px;color:var(--muted);white-space:nowrap;max-width:320px;overflow:hidden;text-overflow:ellipsis}
 .pill.ok{color:var(--green);border-color:var(--green)}
 .pill.bad{color:var(--warn);border-color:var(--warn)}
+.phS{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.phS h4{margin:0 0 8px;font-size:.78rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.phG{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.phG .u{position:relative}
+.phG img{height:96px;width:96px;object-fit:cover;border-radius:8px;border:1px solid var(--line);cursor:zoom-in;background:var(--soft)}
+.phG .u small{position:absolute;left:4px;bottom:4px;background:#000a;color:#fff;border-radius:5px;padding:0 5px;font-size:.62rem}
+.phG .u button{position:absolute;right:3px;top:3px;border:0;border-radius:6px;background:#000b;color:#fff;font-size:.7rem;padding:2px 6px;cursor:pointer}
+.phB{font:inherit;font-size:.7rem;margin-left:6px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);background:var(--soft);color:var(--green);cursor:pointer}
+#phBig{max-width:92vw;max-height:88vh;padding:0;border:0;background:transparent}
+#phBig img{max-width:92vw;max-height:88vh;display:block;border-radius:8px}
 .editBtn.on{background:var(--warn);color:#fff;border-color:var(--warn)}
 body.editing #tbl tbody tr,body.editing .sheet .c,body.editing #pTbl tbody tr,body.editing .quick button{outline:1px dashed var(--warn);outline-offset:-2px;cursor:pointer}
 .editBar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;flex-wrap:wrap;gap:10px 16px;justify-content:center;align-items:center;background:var(--warn);color:#fff;font-weight:600;font-size:.85rem;padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
@@ -377,14 +387,15 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 </div>
 
 <datalist id="resNames"></datalist>
-<div class="editBar" id="editBar" hidden><span>Modo edición activo: toca cualquier artículo de cualquier lista para editarlo.</span><button type="button" id="editOff">Salir de edición</button></div>
 <div class="toast" id="toast" hidden role="status"></div>
 <dialog id="edlg" class="wide">
   <h3 class="dlgT">Editar artículo · <span id="edTitle"></span></h3>
   <p class="note">Los cambios se guardan para todos y quedan en el historial. El marbete no se edita porque es la clave de su QR.</p>
   <div class="edFields" id="edFields"></div>
+  <div class="phS" id="edPh"></div>
   <div class="dlgfoot"><span class="status" id="edSt"></span><button class="sec" id="edCancel" type="button">Cancelar</button><button class="main" id="edSave" type="button">Guardar cambios</button></div>
 </dialog>
+<dialog id="phBig"><form method="dialog"><button style="display:block;width:100%;margin-bottom:6px" class="sec">Cerrar</button></form><img alt="Foto del artículo"></dialog>
 <dialog id="hdlg" class="wide">
   <h3 class="dlgT">Historial de cambios</h3>
   <input type="search" id="hq" class="dlgSearch" placeholder="Buscar marbete, persona, campo…" aria-label="Buscar en el historial">
@@ -394,6 +405,7 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 </dialog>
 <dialog id="dlg">
   <div class="dlg"><canvas id="dlgCv"></canvas><dl id="dlgDl"></dl></div>
+  <div class="phS" id="dlgPh"></div>
   <form method="dialog" class="dlgfoot"><button class="sec">Cerrar</button></form>
 </dialog>
 
@@ -826,6 +838,8 @@ function renderTable(){
     const tr=tb.insertRow();tr.onclick=e=>{if(editMode&&!e.target.closest("button"))openEdit(it)};
     const n=tr.insertCell();n.className="num";n.textContent=it.n;
     if(it.row){const sm=document.createElement("small");sm.textContent="fila "+it.row;n.appendChild(sm)}
+    const fn=FOT[it.tok]?.list?.length||0;
+    if(fn){const pb=document.createElement("button");pb.type="button";pb.className="phB";pb.textContent="📷 "+fn;pb.title="Ver fotos";pb.onclick=e=>{e.stopPropagation();openItem(it)};n.appendChild(pb)}
     const q=tr.insertCell();q.className="qr";const b=document.createElement("button");b.type="button";
     b.setAttribute("aria-label","Ver QR del artículo "+it.n);b.appendChild(drawLabel(document.createElement("canvas"),150,it));
     b.onclick=e=>{e.stopPropagation();itemClick(it)};q.appendChild(b);
@@ -846,7 +860,41 @@ function openItem(it){
   const dl=$("dlgDl");dl.innerHTML="";
   [["No.",String(it.n)],...headers.map(h=>[h,it.cells[h]])].forEach(([k,v])=>{if(!v)return;
     const t=document.createElement("dt");t.textContent=k;const d=document.createElement("dd");d.textContent=v;dl.append(t,d)});
+  phTok=it.tok;phDraw($("dlgPh"),it.tok);
   $("dlg").showModal();
+}
+let phTok="";
+async function phRefresh(tok){
+  try{const sn=await CLOUD.doc("fotos/"+tok).get();if(sn.exists)FOT[tok]=sn.data();else delete FOT[tok]}catch(e){}
+  try{renderTable()}catch(e){}
+  if($("dlg").open)phDraw($("dlgPh"),tok);if($("edlg").open)phDraw($("edPh"),tok);
+}
+const phUrls={};
+async function phShow(host,tok,f){
+  const img=document.createElement("img");img.alt="Foto";
+  try{const k=tok+"/"+f.id;phUrls[k]=phUrls[k]||await window.cnlpApi.fotoUrl(tok,f.id);img.src=phUrls[k]}catch(e){img.alt="No se pudo cargar"}
+  img.onclick=()=>{const d=$("phBig");d.querySelector("img").src=img.src;d.showModal()};
+  const u=document.createElement("div");u.className="u";u.appendChild(img);
+  const sm=document.createElement("small");sm.textContent=fdt(f.at)+" · "+(f.by||"");u.appendChild(sm);
+  if(window.cnlpApi.admin){const x=document.createElement("button");x.type="button";x.textContent="Borrar";let arm=0;
+    x.onclick=async()=>{if(Date.now()-arm>4000){arm=Date.now();x.textContent="¿Seguro?";return}
+      try{await window.cnlpApi.fotoDel(tok,f.id);toast("Foto borrada.");phRefresh(tok)}catch(e){toast(e.message||"No se pudo borrar.",true)}};u.appendChild(x)}
+  host.appendChild(u);
+}
+function phDraw(host,tok){
+  host.innerHTML="";const h=document.createElement("h4");h.textContent="Fotos del artículo";host.appendChild(h);
+  const g=document.createElement("div");g.className="phG";host.appendChild(g);
+  const list=(FOT[tok]?.list||[]).slice().sort((a,b)=>a.at-b.at);
+  if(!list.length){const e=document.createElement("div");e.className="note";e.textContent="Todavía no hay fotos de este artículo. Las que se tomen con la app de inventario aparecerán aquí.";host.appendChild(e)}
+  list.forEach(f=>phShow(g,tok,f));
+  const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.hidden=true;
+  const b=document.createElement("button");b.type="button";b.className="sec";b.textContent="Agregar foto";
+  const st=document.createElement("span");st.className="status";st.style.marginLeft="8px";
+  b.onclick=()=>inp.click();
+  inp.onchange=async()=>{const f=inp.files[0];if(!f)return;b.disabled=true;st.className="status";st.textContent="Subiendo…";
+    try{await window.cnlpApi.fotoPut(tok,f);toast("Foto agregada.");await phRefresh(tok);return}catch(e){st.className="status err";st.textContent=e.message||"No se pudo subir la foto."}
+    b.disabled=false;inp.value=""};
+  host.append(b,inp,st);
 }
 
 /* ---------- lista de impresión ---------- */
@@ -1024,7 +1072,7 @@ async function who(ids){
 }
 const whoName=id=>(id&&NAMES[id])||(id===ME?"Tú":"Usuario");
 
-let CLOUD_ERR="",cloudSub=null;
+let CLOUD_ERR="",cloudSub=null,fotoSub=null,FOT={};
 function cloudPill(){const e=$("cloudPill");if(!e)return;
   if(SITE){e.textContent="Solo consulta (sitio web)";e.className="pill";return}
   e.textContent=CLOUD?"Nube conectada":"Nube sin conectar"+(CLOUD_ERR?" · "+CLOUD_ERR:"");e.className="pill "+(CLOUD?"ok":"bad")}
@@ -1041,6 +1089,9 @@ async function cloudInit(){
     const finish=v=>{if(!done){done=true;res(v)}};
     setTimeout(()=>{if(!CLOUD){CLOUD_ERR="la base tardó demasiado en responder";cloudPill()}finish(!!CLOUD)},20000);
     if(cloudSub)try{cloudSub()}catch(e){}
+    if(fotoSub)try{fotoSub()}catch(e){}
+    try{fotoSub=db.collection("fotos").onSnapshot(sn=>{const f={};sn.docs.forEach(d=>{f[d.id]=d.data()});FOT=f;
+      if(items.length&&!$("tbl").hidden)renderTable();if($("dlg").open&&phTok)phDraw($("dlgPh"),phTok);if($("edlg").open&&phTok)phDraw($("edPh"),phTok)},()=>{})}catch(e){}
     cloudSub=db.collection("inv").onSnapshot(snap=>{
       let meta=null;const i={};
       snap.docs.forEach(d=>{const x=d.data();if(d.id==="meta")meta=x;else if(x&&x.items)for(const[k,v] of Object.entries(x.items))i[k]=v.slice()});
@@ -1107,10 +1158,9 @@ async function setEdit(on){
   if(on&&!(await needCloud()))return;
   editMode=on;document.body.classList.toggle("editing",on);
   document.querySelectorAll(".editBtn").forEach(b=>{b.classList.toggle("on",on);b.textContent=on?"Salir de edición":"Edición"});
-  $("editBar").hidden=!on;
+  if(on)toast("Modo edición: toca cualquier artículo para editarlo.");
 }
 document.addEventListener("click",e=>{const b=e.target.closest(".editBtn");if(b)setEdit(!editMode)});
-$("editOff").onclick=()=>setEdit(false);
 function itemClick(it){editMode?openEdit(it):openItem(it)}
 let edTok="",edNewOk="";
 function resNames(){const rc=resCol();return[...new Set(items.map(i=>i.cells[rc]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"))}
@@ -1127,6 +1177,7 @@ function openEdit(it){
     l.appendChild(inp);f.appendChild(l);
   });
   $("edSt").textContent="";$("edSt").className="status";$("edSave").disabled=false;
+  phTok=it.tok;phDraw($("edPh"),it.tok);
   $("edlg").showModal();
 }
 $("edCancel").onclick=()=>$("edlg").close();

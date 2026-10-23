@@ -92,7 +92,9 @@
     const w = $q(".who"); if (!w || $q("#outBtn")) return;
     const b = el("button", "", "Salir · " + NAME); b.id = "outBtn"; b.type = "button";
     b.onclick = () => { try { localStorage.removeItem(TK); localStorage.removeItem(UK); } catch (e) {} location.reload(); };
-    w.appendChild(b);
+    const a = el("a", "", "📱 App de inventario"); a.id = "appLnk"; a.href = "/app/"; a.target = "_blank"; a.rel = "noopener";
+    a.style.cssText = "margin-left:8px;font-size:.7rem;padding:4px 9px;border:1px solid var(--line,#e1e5e3);border-radius:999px;color:var(--green,#006b54);text-decoration:none;vertical-align:middle";
+    w.append(a, b);
   }
 
   /* ---------- ficha de un artículo (al escanear su QR) ---------- */
@@ -193,6 +195,31 @@
       document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
     },
   };
+  /* ---------- fotos de los artículos ---------- */
+  async function shrink(file) {
+    let bmp;
+    try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" }); }
+    catch (e) { bmp = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = URL.createObjectURL(file); }); }
+    const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight, k = Math.min(1, 1280 / Math.max(w0, h0));
+    const c = document.createElement("canvas"); c.width = Math.round(w0 * k); c.height = Math.round(h0 * k);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", 0.72);
+  }
+  window.cnlpApi = {
+    get admin() { return NAME === "Mitchell"; },
+    async fotoPut(tok, file) {
+      const data = await shrink(file);
+      const id = (Math.random().toString(36).slice(2, 8) + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)).replace(/[^A-Za-z0-9]/g, "");
+      return raw("foto-put", { tok, id, data });
+    },
+    async fotoUrl(tok, id) {
+      const r = await fetch("/api/foto-get", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + TOK }, body: JSON.stringify({ tok, id }) });
+      if (!r.ok) throw { message: "No se pudo cargar la foto." };
+      return URL.createObjectURL(await r.blob());
+    },
+    fotoDel(tok, id) { return raw("foto-del", { tok, id }); },
+  };
+
   window.claude = {
     use: async (name) => {
       if (name === "db") { await loggedIn; await appGo; return db; }
