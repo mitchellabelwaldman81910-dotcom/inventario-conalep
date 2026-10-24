@@ -1,4 +1,4 @@
-/* Efectos: sonidos sintetizados (sin archivos), vibración, confeti, números que cuentan y anillos de avance. */
+/* Efectos del portal (los mismos de la app): sonidos sintetizados sin archivos, confeti, números que cuentan, anillos y onda al tocar. */
 (() => {
 "use strict";
 const FX = { sound: true, vib: true, motion: true };
@@ -50,7 +50,7 @@ FX.count = (el, to, dur = 650) => {
   if (!el) return; const from = Number(el.dataset.v ?? 0); el.dataset.v = to;
   if (!FX.motion || from === to || document.hidden) { el.textContent = fmt(to); return; }
   const t0 = performance.now();
-  const step = (t) => { const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = fmt(from + (to - from) * e); if (k < 1 && el.dataset.v == to) requestAnimationFrame(step); };
+  const step = (t) => { const k = Math.max(0, Math.min(1, (t - t0) / dur)), e = 1 - Math.pow(1 - k, 3); el.textContent = fmt(from + (to - from) * e); if (k < 1 && el.dataset.v == to) requestAnimationFrame(step); };
   requestAnimationFrame(step);
 };
 FX.countAll = (root) => root.querySelectorAll("[data-count]").forEach((el) => { const to = Number(el.dataset.count); el.removeAttribute("data-count"); FX.count(el, to); });
@@ -108,7 +108,7 @@ FX.burst = (x, y, color) => {
 
 /* ---------- onda al tocar ---------- */
 document.addEventListener("pointerdown", (e) => {
-  const b = e.target.closest(".btn,.chip,.pc,.tab,.st,.set-r[data-act],.qa");
+  const b = e.target.closest(".btn,.chip,.nv,.seg button,.qa,.rip-on");
   if (!b || !FX.motion || b.disabled) return;
   const r = b.getBoundingClientRect(), s = Math.max(r.width, r.height) * 2.2;
   const w = document.createElement("span"); w.className = "rip"; w.style.cssText = `width:${s}px;height:${s}px;left:${e.clientX - r.left - s / 2}px;top:${e.clientY - r.top - s / 2}px`;
