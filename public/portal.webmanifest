@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "Inventario CONALEP Chetumal",
+  "short_name": "Inventario",
+  "description": "Portal de inventario de mobiliario y equipo · Servicios Administrativos",
+  "start_url": "/#/inicio",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#00261E",
+  "theme_color": "#00261E",
+  "lang": "es-MX",
+  "icons": [
+    { "src": "app/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "app/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "app/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
