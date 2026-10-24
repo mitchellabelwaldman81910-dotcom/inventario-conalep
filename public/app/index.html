@@ -4,148 +4,86 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<meta name="theme-color" content="#006b54">
+<meta name="theme-color" content="#EAF0EC">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Inventario">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="description" content="Inventario de bienes por resguardante · CONALEP Chetumal">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/icon-192.png">
+<link rel="preload" href="fonts/BricolageGrotesque-Regular.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="fonts/BigShoulders-Bold.woff" as="font" type="font/woff" crossorigin>
 <title>Inventario CONALEP</title>
-<style>
-:root{--bg:#f4f6f5;--card:#fff;--ink:#141817;--muted:#66706c;--line:#e1e5e3;--green:#006b54;--on:#fff;--ok:#1b8a4b;--okbg:#e6f4ec;--bad:#c0392b;--badbg:#fbe9e7;--warn:#9a6700;--warnbg:#fff4d6;--soft:#eef1f0}
-@media(prefers-color-scheme:dark){:root{--bg:#0f1312;--card:#181d1c;--ink:#eef2f0;--muted:#97a29d;--line:#2a3230;--green:#2fb58f;--on:#04130e;--ok:#4cc27f;--okbg:#14291e;--bad:#ff7b6b;--badbg:#321a17;--warn:#e8b94a;--warnbg:#30270e;--soft:#202625}}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%}
-body{background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
-button,input,select{font:inherit;color:inherit}
-button{cursor:pointer}
-[hidden]{display:none!important}
-#app{display:flex;flex-direction:column;height:100%;max-width:720px;margin:0 auto}
-header{display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;background:var(--card);border-bottom:1px solid var(--line)}
-header .back{border:0;background:var(--soft);width:40px;height:40px;border-radius:12px;font-size:1.3rem;line-height:1}
-header h1{flex:1;margin:0;font-size:1.05rem;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-header h1 small{display:block;font-weight:500;font-size:.72rem;color:var(--muted)}
-.pill{font-size:.72rem;font-weight:700;border-radius:999px;padding:5px 10px;border:1px solid var(--line);background:var(--soft);color:var(--muted);white-space:nowrap;cursor:pointer}
-.pill.ok{background:var(--okbg);color:var(--ok);border-color:transparent}
-.pill.off{background:var(--warnbg);color:var(--warn);border-color:transparent}
-.pill.bad{background:var(--badbg);color:var(--bad);border-color:transparent}
-main{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:14px 14px calc(96px + env(safe-area-inset-bottom))}
-.bar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;gap:8px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--line);max-width:720px;margin:0 auto}
-.btn{min-width:0;white-space:normal;overflow-wrap:anywhere;flex:1;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:13px 10px;font-weight:700;text-align:center}
-.btn.main{background:var(--green);color:var(--on);border-color:var(--green)}
-.btn.warn{background:var(--warnbg);color:var(--warn);border-color:transparent}
-.btn.bad{background:var(--badbg);color:var(--bad);border-color:transparent}
-.btn:disabled{opacity:.5}
-.btn.sm{max-width:100%;flex:0 0 auto;padding:8px 12px;font-size:.85rem;border-radius:10px}
-input[type=text],input[type=password],input[type=search],input:not([type]),select{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px}
-.rowc{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:14px;padding:12px 14px;margin-bottom:8px}
-.rowc .t{flex:1;min-width:0}
-.rowc b{display:block;overflow-wrap:anywhere}
-.rowc small{color:var(--muted)}
-.prog{height:6px;border-radius:99px;background:var(--soft);overflow:hidden;margin-top:6px}
-.prog i{display:block;height:100%;background:var(--green)}
-.cnt{font-weight:700;font-size:.85rem;color:var(--muted);white-space:nowrap}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
-.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 4px;text-align:center}
-.stat b{display:block;font-size:1.25rem}
-.stat span{font-size:.68rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-.stat.ok b{color:var(--ok)}.stat.bad b{color:var(--bad)}
-.chips{display:flex;gap:6px;overflow:auto;margin:0 0 10px}
-.chip{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:7px 12px;font-size:.85rem;font-weight:600;white-space:nowrap}
-.chip.on{background:var(--green);color:var(--on);border-color:var(--green)}
-.it{display:flex;gap:10px;align-items:stretch;background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:8px;overflow:hidden}
-.it.ok{border-color:var(--ok);background:var(--okbg)}
-.it.no{border-color:var(--bad);background:var(--badbg)}
-.it.moved{opacity:.6}
-.it .i{flex:1;min-width:0;padding:10px 0 10px 12px;text-align:left;border:0;background:none}
-.it .i b{font-size:.85rem;font-family:ui-monospace,Menlo,monospace;color:var(--green)}
-.it .i span{display:block;overflow-wrap:anywhere;font-size:.95rem}
-.it .i small{display:block;color:var(--muted);font-size:.75rem}
-.it .a{display:flex;gap:6px;padding:8px 8px 8px 0;align-items:center}
-.mk{width:46px;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-size:1.25rem;font-weight:800}
-.mk.si.on{background:var(--ok);color:#fff;border-color:var(--ok)}
-.mk.no.on{background:var(--bad);color:#fff;border-color:var(--bad)}
-.tag{display:inline-block;font-size:.7rem;font-weight:700;border-radius:99px;padding:2px 8px;background:var(--soft);color:var(--muted);margin-top:3px}
-.tag.w{background:var(--warnbg);color:var(--warn)}
-.tag.g{background:var(--okbg);color:var(--ok)}
-h2{font-size:.78rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:18px 2px 8px}
-.empty{text-align:center;color:var(--muted);padding:30px 10px}
-.note{font-size:.85rem;color:var(--muted)}
-.err{color:var(--bad);font-size:.9rem;min-height:1.3em}
-/* acceso */
-#login{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;justify-content:center;align-items:flex-start;padding:max(30px,env(safe-area-inset-top)) 22px 22px;overflow:auto}
-#login form{width:100%;max-width:380px}
-#login img{height:54px;display:block;margin:10px auto 14px}
-#login h1{font-size:1.15rem;text-align:center;margin:0 0 4px}
-#login p{text-align:center;color:var(--muted);font-size:.85rem;margin:0 0 20px}
-#login label{display:block;font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
-/* cámara */
-#scan{position:fixed;inset:0;z-index:40;background:#000;display:flex;flex-direction:column}
-#scan video{flex:1;width:100%;min-height:0;object-fit:cover}
-#scan .top{position:absolute;top:0;left:0;right:0;display:flex;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;background:linear-gradient(#000a,#0000)}
-#scan .top .btn{flex:0 0 auto;background:#fff3;color:#fff;border:0;backdrop-filter:blur(6px)}
-#scan .top .t{flex:1;color:#fff;font-weight:700;align-self:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#scan .frame{position:absolute;left:50%;top:38%;width:62vmin;height:62vmin;max-width:340px;max-height:340px;transform:translate(-50%,-50%);border:3px solid #fff9;border-radius:22px;pointer-events:none;box-shadow:0 0 0 100vmax #0003}
-#scan .res{position:absolute;left:0;right:0;bottom:0;padding:12px 12px calc(12px + env(safe-area-inset-bottom));background:var(--card);border-radius:20px 20px 0 0;min-height:128px;max-height:52%;overflow:auto}
-#scan .res .hint{color:var(--muted);text-align:center;padding:18px 6px}
-.scanres b.big{font-size:1rem}
-.flash{animation:fl .5s}
-@keyframes fl{0%{box-shadow:inset 0 0 0 100vmax #1b8a4b66}100%{box-shadow:inset 0 0 0 100vmax #0000}}
-/* hoja de artículo */
-dialog{border:0;border-radius:20px 20px 0 0;padding:0;width:100%;max-width:720px;margin:auto auto 0;background:var(--card);color:var(--ink);max-height:92%}
-dialog::backdrop{background:#0008}
-dialog .in{padding:16px 16px calc(18px + env(safe-area-inset-bottom));overflow:auto;max-height:90vh}
-dialog h3{margin:0 0 4px;font-size:1.1rem;line-height:1.25}
-dl.f{display:grid;grid-template-columns:7.5rem 1fr;gap:6px 10px;margin:12px 0}
-dl.f dt{font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-top:3px}
-dl.f dd{margin:0;overflow-wrap:anywhere}
-.ph{display:flex;gap:8px;overflow:auto;margin:8px 0}
-.ph img{height:90px;width:90px;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:var(--soft)}
-.ph .u{position:relative}
-.ph .u i{position:absolute;right:4px;bottom:4px;background:#000a;color:#fff;font-style:normal;font-size:.65rem;border-radius:6px;padding:1px 5px}
-.toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#111;color:#fff;border-radius:12px;padding:10px 16px;z-index:99;font-size:.9rem;max-width:90%;text-align:center}
-.toast.bad{background:var(--bad)}
-.sum li{margin:2px 0}
-.sum ul{padding-left:20px;margin:4px 0}
-</style>
+<script>try{var s=JSON.parse(localStorage.getItem("cnlp_set")||"{}");if(s.theme==="dark"||s.theme==="light")document.documentElement.setAttribute("data-theme",s.theme);if(s.less)document.documentElement.classList.add("lessmo")}catch(e){}</script>
+<link rel="stylesheet" href="app.css">
 </head>
 <body>
 <div id="app">
-  <header>
-    <button class="back" id="back" hidden aria-label="Atrás">‹</button>
-    <h1 id="title">Inventario<small id="sub"></small></h1>
-    <button class="pill" id="net" type="button">…</button>
+  <header class="hdr" id="hdr">
+    <button class="hdr-b" id="hb" type="button" aria-label="Atrás" hidden></button>
+    <span class="hdr-logo" id="hlogo" aria-hidden="true"></span>
+    <div class="hdr-t" id="htit"><b>Inventario</b><small></small></div>
+    <button class="pill" id="net" type="button" aria-label="Estado de envío">…</button>
   </header>
-  <main id="view"></main>
-  <div class="bar" id="bar" hidden></div>
+  <div class="offl" id="offline" role="status" hidden></div>
+  <main class="view" id="view"></main>
 </div>
 
-<div id="login" hidden>
-  <form id="lf" autocomplete="off">
-    <img id="lg" alt="CONALEP">
-    <h1>Inventario CONALEP</h1>
-    <p>Servicios Administrativos · acceso con contraseña</p>
-    <label for="lu">Usuario</label>
-    <select id="lu"><option>Juan Moreno</option><option>Mitchell</option></select>
-    <label for="lp">Contraseña</label>
-    <input id="lp" type="password" autocomplete="current-password">
-    <div class="err" id="le"></div>
-    <button class="btn main" id="lb" style="width:100%;margin-top:6px" type="submit">Entrar</button>
-    <p class="note" id="lnote" style="margin-top:16px" hidden></p>
-  </form>
+<nav class="tabs away" id="tabs" aria-label="Secciones">
+  <i class="tab-ind" id="tind"></i>
+  <button class="tab" type="button" data-tab="home" data-ic="home"><span>Inicio</span></button>
+  <button class="tab" type="button" data-tab="search" data-ic="search"><span>Buscar</span></button>
+  <button class="fab" id="fab" type="button" aria-label="Escanear un marbete"></button>
+  <button class="tab" type="button" data-tab="act" data-ic="act"><span>Actividad</span></button>
+  <button class="tab" type="button" data-tab="more" data-ic="more"><span>Más</span></button>
+</nav>
+<div class="ctx" id="ctx" hidden></div>
+
+<div class="login" id="login" hidden>
+  <div class="lg-bg"><i class="blob a"></i><i class="blob b"></i><i class="blob c"></i><div class="lg-grid"></div></div>
+  <div class="lg-in">
+    <div class="lg-mark" id="lmark"></div>
+    <h1>Inventario</h1>
+    <p>CONALEP Chetumal · Servicios Administrativos</p>
+    <form class="lg-card" id="lcard" autocomplete="off">
+      <label class="l">¿Quién eres?</label>
+      <div class="who" role="radiogroup">
+        <input type="radio" name="lu" id="lu1" value="Juan Moreno" checked><label for="lu1" data-n="Juan Moreno"><b>Juan Moreno</b></label>
+        <input type="radio" name="lu" id="lu2" value="Mitchell"><label for="lu2" data-n="Mitchell"><b>Mitchell</b></label>
+      </div>
+      <label class="l" for="lp">Contraseña</label>
+      <div class="pw"><input id="lp" type="password" autocomplete="current-password" placeholder="Tu contraseña"><button type="button" class="eye" id="leye" aria-label="Mostrar contraseña"></button></div>
+      <div class="lg-err" id="lerr" role="alert"></div>
+      <button class="btn pri" id="lb" type="submit"><span>Entrar</span></button>
+      <p class="lg-note" id="lnote" hidden></p>
+    </form>
+  </div>
+  <div class="lg-foot">Sin internet también funciona, después de entrar la primera vez.</div>
 </div>
 
-<div id="scan" hidden>
+<div class="scan" id="scan" hidden>
   <video id="vid" playsinline muted autoplay></video>
-  <div class="frame"></div>
-  <div class="top"><button class="btn sm" id="sx">‹ Cerrar</button><div class="t" id="st"></div><button class="btn sm" id="storch" hidden>Linterna</button></div>
-  <div class="res" id="sres"></div>
+  <div class="sc-frame" aria-hidden="true"><i class="cn a"></i><i class="cn b"></i><i class="cn c"></i><i class="cn d"></i><i class="laser"></i></div>
+  <div class="sc-top">
+    <button class="gb" id="sx" type="button" aria-label="Cerrar cámara"></button>
+    <div class="sc-ttl"><b id="st"></b><small id="ss"></small></div>
+    <button class="gb txt" id="szoom" type="button" aria-label="Acercar" hidden>1×</button>
+    <button class="gb" id="storch" type="button" aria-label="Linterna" hidden></button>
+    <button class="gb" id="skey" type="button" aria-label="Teclear número de marbete"></button>
+  </div>
+  <div class="sc-prog" id="sprog" hidden></div>
+  <div class="sc-card"><div id="sres" aria-live="polite"></div><div class="sc-hist" id="shist" hidden></div></div>
 </div>
-<dialog id="sheet"><div class="in" id="shin"></div></dialog>
+
+<dialog class="sheet" id="sheet"><div class="grab" aria-hidden="true"></div><div class="sh-in" id="shin"></div></dialog>
+<div class="onb" id="onb" hidden></div>
+<div id="print"></div>
+
 <script src="qrdec.js"></script>
+<script src="core.js"></script>
+<script src="fx.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

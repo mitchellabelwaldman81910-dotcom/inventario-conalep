@@ -1221,6 +1221,7 @@ $("hClose").onclick=()=>$("hdlg").close();
 
 /* ---------- hora de inventariar ---------- */
 let INV={name:"",toks:[],marks:{},ref:null},invOpen="";
+const EFIS={B:"Bueno",R:"Regular",M:"Malo"};
 async function openInv(){
   if(!(await needCloud()))return;
   const name=resSel;INV={name,toks:perItems().map(i=>i.tok),marks:{},ref:CLOUD.doc("marcas/"+nameKey(name))};
@@ -1238,7 +1239,8 @@ function renderInv(){
     const d=document.createElement("span");d.textContent=it.cells[descCol]||"";
     const sm=document.createElement("small");sm.textContent=[it.cells[headers.find(h=>/modelo/i.test(h))],it.cells[headers.find(h=>/serie/i.test(h))]].filter(Boolean).join(" · ");
     info.append(k,d,sm);
-    if(m&&!moved){const w=document.createElement("small");w.className="invWhen";w.textContent=(m.e==="si"?"Presente":"No está")+" · "+fdt(m.at)+" · "+whoName(m.by);info.appendChild(w)}
+    if(m&&!moved){const w=document.createElement("small");w.className="invWhen";w.textContent=(m.e==="si"?"Presente":"No está")+(m.e==="si"&&EFIS[m.c]?" · Estado: "+EFIS[m.c]:"")+" · "+fdt(m.at)+" · "+whoName(m.by);info.appendChild(w);
+      if(m.n){const o=document.createElement("small");o.className="invWhen";o.textContent="Observaciones: "+m.n;info.appendChild(o)}}
     const acts=document.createElement("div");acts.className="invActs";
     const ok=document.createElement("button");ok.type="button";ok.className="mk si"+(m?.e==="si"?" on":"");ok.textContent="✓";ok.title="Está en su resguardo";ok.setAttribute("aria-label","Presente");
     const x=document.createElement("button");x.type="button";x.className="mk no"+(m?.e==="no"?" on":"");x.textContent="✗";x.title="No está";x.setAttribute("aria-label","No está");
@@ -1281,10 +1283,10 @@ $("iReset").onclick=async()=>{
   try{await INV.ref.set({name:INV.name,inicio:Date.now(),marks:{}});INV.marks={};renderInv();toast("Revisión reiniciada.")}catch(e){toast(errMsg(e),true)}
 };
 $("iXls").onclick=async()=>{
-  const rc=resCol();const aoa=[["REVISIÓN DE INVENTARIO · RESGUARDO DE: "+INV.name],["Fecha: "+fecha()],[],["#","Marbete","Descripción","Estado","Revisado","Por","Resguardante actual"]];
+  const rc=resCol();const aoa=[["REVISIÓN DE INVENTARIO · RESGUARDO DE: "+INV.name],["Fecha: "+fecha()],[],["#","Marbete","Descripción","Estado","Estado físico","Observaciones","Revisado","Por","Resguardante actual"]];
   INV.toks.forEach((tok,i)=>{const it=itemByTok(tok);if(!it)return;const m=INV.marks[tok],moved=(it.cells[rc]||SIN)!==INV.name;
-    aoa.push([i+1,it.cells[keyCol]||"",it.cells[descCol]||"",moved?"Trasladado":m?.e==="si"?"Presente":m?.e==="no"?"No está":"Pendiente",m?fdt(m.at):"",m?whoName(m.by):"",it.cells[rc]||""])});
-  const ws=XLSX.utils.aoa_to_sheet(aoa);ws["!cols"]=[{wch:5},{wch:10},{wch:50},{wch:12},{wch:18},{wch:24},{wch:34}];
+    aoa.push([i+1,it.cells[keyCol]||"",it.cells[descCol]||"",moved?"Trasladado":m?.e==="si"?"Presente":m?.e==="no"?"No está":"Pendiente",m?.e==="si"?EFIS[m.c]||"":"",m?.n||"",m?fdt(m.at):"",m?whoName(m.by):"",it.cells[rc]||""])});
+  const ws=XLSX.utils.aoa_to_sheet(aoa);ws["!cols"]=[{wch:5},{wch:10},{wch:50},{wch:12},{wch:13},{wch:36},{wch:18},{wch:24},{wch:34}];
   const w=XLSX.utils.book_new();XLSX.utils.book_append_sheet(w,ws,"Revisión");
   try{await save("revision_"+safe(INV.name).replace(/\s+/g,"_")+".xlsx",XLSX.write(w,{type:"array",bookType:"xlsx"}))}catch(e){if(e?.code!=="declined")toast("No se pudo descargar.",true)}
 };
