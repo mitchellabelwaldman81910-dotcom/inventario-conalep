@@ -378,7 +378,7 @@ F.pdfTable = async ({ title, subtitle, info, cols, rows, footer, signature, land
   const tw = cols.reduce((s, c) => s + c.w, 0), sc = (W - 2 * M) / tw; const cw = cols.map((c) => c.w * sc);
   const GREEN = rgb(0, 107 / 255, 84 / 255), INK = rgb(0.08, 0.08, 0.08), GRAY = rgb(0.32, 0.32, 0.32);
   let page, y; const pages = [];
-  const head = () => {
+  const head = (withCols = true) => {
     page = pdf.addPage([W, H]); pages.push(page);
     const lh = 12 * MM, lw = lh * LOGO_AR; page.drawImage(logo, { x: M, y: H - M - lh, width: lw, height: lh });
     page.drawText(win(title), { x: M + lw + 4 * MM, y: H - M - 4.5 * MM, size: 11, font: bold, color: INK });
@@ -390,6 +390,7 @@ F.pdfTable = async ({ title, subtitle, info, cols, rows, footer, signature, land
       else { page.drawText(t, { x: M + lw + 4 * MM, y: H - M - 14 * MM, size: 9, font, color: GRAY }); extra = 4 * MM; }
     }
     y = H - M - 17 * MM - extra;
+    if (!withCols) return;
     page.drawRectangle({ x: M, y: y - 6 * MM, width: W - 2 * M, height: 6 * MM, color: GREEN });
     let x = M; cols.forEach((c, j) => { const t = wrap(String(c.h).toUpperCase(), bold, 7, cw[j] - 2 * MM)[0]; page.drawText(t, { x: c.right ? x + cw[j] - 1 * MM - bold.widthOfTextAtSize(t, 7) : x + 1 * MM, y: y - 4.1 * MM, size: 7, font: bold, color: rgb(1, 1, 1) }); x += cw[j]; });
     y -= 6 * MM;
@@ -406,11 +407,20 @@ F.pdfTable = async ({ title, subtitle, info, cols, rows, footer, signature, land
     if (onProg && i % 200 === 0) { onProg(i, rows.length); await tick(); }
   }
   page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: 0.5, color: rgb(0.7, 0.7, 0.7) });
-  if (y - 30 * MM < M) { head(); }
-  if (footer) page.drawText(win(footer), { x: M, y: y - 6 * MM, size: 9, font: bold, color: INK });
+  if (y - ((signature && (Array.isArray(signature) ? signature : [signature]).some((s) => s && s.sig) ? 46 : 30) + 4.6 * (Array.isArray(footer) ? footer.length : 1)) * MM < M) { head(false); }
+  const fls = footer ? (Array.isArray(footer) ? footer : [footer]).filter(Boolean) : [];
+  fls.forEach((ft, k) => page.drawText(win(ft), { x: M, y: y - (6 + 4.6 * k) * MM, size: k ? 8.5 : 9, font: k ? font : bold, color: INK }));
   const sigs = signature ? (Array.isArray(signature) ? signature : [signature]) : [];
+  const hasSig = sigs.some((s) => s && s.sig && Array.isArray(s.sig.s));
   sigs.forEach((s, k) => {
-    const x1 = W - M - (k + 1) * 86 * MM + 6 * MM, x2 = x1 + 80 * MM, cx = (x1 + x2) / 2, yl = y - 20 * MM;
+    const x1 = W - M - (k + 1) * 86 * MM + 6 * MM, x2 = x1 + 80 * MM, cx = (x1 + x2) / 2, yl = y - (hasSig ? 36 : 20) * MM;
+    if (s.sig && Array.isArray(s.sig.s) && s.sig.w > 0 && s.sig.h > 0) {
+      const sc2 = Math.min((74 * MM) / s.sig.w, (24 * MM) / s.sig.h), sw2 = s.sig.w * sc2, sh2 = s.sig.h * sc2, ox = cx - sw2 / 2, oy = yl + 1.5 * MM;
+      for (const st of s.sig.s) {
+        if (!Array.isArray(st) || st.length < 2) continue;
+        for (let i = 0; i + 3 < st.length; i += 2) page.drawLine({ start: { x: ox + st[i] * sc2, y: oy + sh2 - st[i + 1] * sc2 }, end: { x: ox + st[i + 2] * sc2, y: oy + sh2 - st[i + 3] * sc2 }, thickness: 0.9, color: rgb(0.04, 0.1, 0.08), lineCap: L.LineCapStyle.Round });
+      }
+    }
     page.drawLine({ start: { x: x1, y: yl }, end: { x: x2, y: yl }, thickness: 0.6, color: INK });
     const a = win(s.name || ""), b = win(s.role || "");
     page.drawText(a, { x: cx - font.widthOfTextAtSize(a, 8) / 2, y: yl - 4 * MM, size: 8, font, color: INK });

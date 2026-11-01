@@ -1,6 +1,6 @@
 /* Service worker: guarda la app para abrirla sin internet. Nunca toca /api (los datos viven en la app, en IndexedDB). */
-const V = "inv-app-v2";
-const SHELL = ["./", "./index.html", "./app.css", "./core.js", "./fx.js", "./app.js", "./qrdec.js", "./manifest.webmanifest",
+const V = "inv-app-v9";
+const SHELL = ["./", "./index.html", "./app.css", "./core.js", "./acentos.js", "./fx.js", "./app.js", "./qrdec.js", "./ayuda-datos.js", "./manifest.webmanifest",
   "./fonts/BricolageGrotesque-Regular.woff", "./fonts/BricolageGrotesque-Bold.woff", "./fonts/BigShoulders-Bold.woff",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png"];
 

@@ -16,7 +16,7 @@
 <link rel="preload" href="fonts/BricolageGrotesque-Regular.woff" as="font" type="font/woff" crossorigin>
 <link rel="preload" href="fonts/BigShoulders-Bold.woff" as="font" type="font/woff" crossorigin>
 <title>Inventario CONALEP</title>
-<script>try{var s=JSON.parse(localStorage.getItem("cnlp_set")||"{}");if(s.theme==="dark"||s.theme==="light")document.documentElement.setAttribute("data-theme",s.theme);if(s.less)document.documentElement.classList.add("lessmo")}catch(e){}</script>
+<script>try{var s=JSON.parse(localStorage.getItem("cnlp_set")||"{}");if(s.theme==="dark"||s.theme==="light")document.documentElement.setAttribute("data-theme",s.theme);if(s.less)document.documentElement.classList.add("lessmo");if(s.text)document.documentElement.style.fontSize=["100%","112%","125%"][s.text]||"100%"}catch(e){}</script>
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
@@ -25,6 +25,7 @@
     <button class="hdr-b" id="hb" type="button" aria-label="Atrás" hidden></button>
     <span class="hdr-logo" id="hlogo" aria-hidden="true"></span>
     <div class="hdr-t" id="htit"><b>Inventario</b><small></small></div>
+    <button class="hdr-b help" id="hhelp" type="button" aria-label="Ayuda de esta pantalla" hidden></button>
     <button class="pill" id="net" type="button" aria-label="Estado de envío">…</button>
   </header>
   <div class="offl" id="offline" role="status" hidden></div>
@@ -79,9 +80,23 @@
 
 <dialog class="sheet" id="sheet"><div class="grab" aria-hidden="true"></div><div class="sh-in" id="shin"></div></dialog>
 <div class="onb" id="onb" hidden></div>
+<div class="guide" id="guide" hidden></div>
 <div id="print"></div>
 
+<script>
+/* aviso amable si el navegador del teléfono es demasiado viejo (no impide seguir intentando) */
+(function(){try{
+  var ok=!!(window.HTMLDialogElement&&HTMLDialogElement.prototype.showModal&&window.indexedDB&&Object.fromEntries&&window.fetch&&window.CSS&&CSS.supports&&CSS.supports("color","color-mix(in srgb,red,blue)"));
+  if(ok)return;
+  var d=document.createElement("div");d.setAttribute("role","alert");
+  d.style.cssText="position:fixed;left:12px;right:12px;top:12px;z-index:99999;background:#fff3cd;color:#3b2a00;border-radius:16px;padding:14px 16px;font:15px/1.4 system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3)";
+  d.innerHTML="<b>Tu navegador es muy antiguo.</b><br>Esta app puede fallar o verse mal. Actualiza <b>Chrome</b> desde Play Store (o Safari desde Ajustes → General → Actualización de software) y vuelve a abrir.<br><button style=\"margin-top:10px;padding:8px 14px;border:0;border-radius:10px;background:#3b2a00;color:#fff;font:inherit\" onclick=\"this.parentNode.remove()\">Entendido</button>";
+  document.addEventListener("DOMContentLoaded",function(){document.body.appendChild(d)});
+}catch(e){}})();
+</script>
 <script src="qrdec.js"></script>
+<script src="ayuda-datos.js"></script>
+<script src="acentos.js"></script>
 <script src="core.js"></script>
 <script src="fx.js"></script>
 <script src="app.js"></script>

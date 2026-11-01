@@ -33,18 +33,20 @@ U.route("inicio", () => {
   const el = h(`<div class="home"></div>`);
   const hr = new Date().getHours(); const saludo = hr < 12 ? "Buenos días" : hr < 19 ? "Buenas tardes" : "Buenas noches";
   const today = cap(new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" }));
-  el.innerHTML = `<div class="hello"><div><h1>${saludo}, ${esc(firstName(D.user))}.</h1><p id="hSub">${esc(today)}</p></div><div class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="hScan">${icon("qr")}<span>Escanear</span></button><a class="btn" href="#/importar">${icon("upload")}<span>Importar Excel</span></a><a class="btn pri" href="#/lista">${icon("list")}<span>Abrir la lista</span></a></div></div>
-  <section class="board" aria-labelledby="bT"><div class="board-h"><div><h2 id="bT">Todo el inventario, artículo por artículo</h2><p id="bSub"></p></div><div class="board-c"><div class="seg" id="mMode" role="group" aria-label="Colorear por">${[["inv", "Revisión"], ["est", "Estado físico"], ["val", "Valor"], ["edad", "Antigüedad"], ["datos", "Datos"]].map(([k, l]) => `<button type="button" data-m="${k}">${l}</button>`).join("")}</div><div class="seg" id="mBy" role="group" aria-label="Agrupar por">${[["rc", "Resguardante"], ["ar", "Área"], ["cu", "Cuenta"]].map(([k, l]) => `<button type="button" data-b="${k}">${l}</button>`).join("")}</div></div></div><div id="mos"></div><div class="board-k" id="mKey"></div></section>
+  el.innerHTML = `<div class="hello"><div><h1>${saludo}, ${esc(firstName(D.user))}.</h1><p id="hSub">${esc(today)}</p></div><div class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="hScan">${icon("qr")}<span>Escanear</span></button><a class="btn" href="#/pantalla" id="hTv">${icon("tv")}<span>Modo pantalla</span></a><a class="btn" href="#/importar">${icon("upload")}<span>Importar Excel</span></a><a class="btn pri" href="#/lista">${icon("list")}<span>Abrir la lista</span></a></div></div>
+  <section class="board" aria-labelledby="bT"><div class="board-h"><div><h2 id="bT">Todo el inventario, artículo por artículo</h2><p id="bSub"></p></div><div class="board-c"><div class="seg" id="mMode" role="group" aria-label="Colorear por">${[["inv", "Revisión"], ["est", "Estado físico"], ["val", "Valor"], ["edad", "Antigüedad"], ["datos", "Datos"]].map(([k, l]) => `<button type="button" data-m="${k}">${l}</button>`).join("")}</div><div class="seg" id="mBy" role="group" aria-label="Agrupar por">${[["rc", "Resguardante"], ["ar", "Área"], ["cu", "Cuenta"]].map(([k, l]) => `<button type="button" data-b="${k}">${l}</button>`).join("")}</div><button class="btn rp-open" type="button" id="mPlay">${icon("play")}<span>Reproducir la revisión</span></button></div></div><div id="mos"></div><div class="rp" id="rp" hidden></div><div class="board-k" id="mKey"></div></section>
   <div class="kpis" id="kpis"></div>
   <div class="grid g2"><section class="ask" id="ask"></section><section class="pnl"><div class="pnl-h"><div><h2>Lo que detecté</h2><p>Revisión automática de todo el inventario.</p></div><a class="link" href="#/salud">Ver todo${icon("right")}</a></div><ul class="ins" id="ins"></ul></section></div>
   <div class="grid g2" style="margin-top:18px"><section class="pnl"><div class="pnl-h"><div><h2>Actividad reciente</h2><p>Cambios, traslados y revisiones.</p></div><a class="link" href="#/historial">Bitácora${icon("right")}</a></div><ul class="feed" id="feed"></ul></section><section class="pnl" id="curso"></section></div>`;
   $("#hScan", el).onclick = () => S.scan();
   // mosaico
+  const RP = { active: false };
   const mos = U.mosaic({ onItem: (it) => S.openItem(it.tok), onGroup: (g) => { if (U.set.mgroup === "rc") U.go("#/resguardante/" + encodeURIComponent(g.key)); else if (U.set.mgroup === "ar") U.go(qLink('area:"' + g.key + '"')); else U.go(qLink('cuenta:"' + g.key + '"')); } });
   mos.tip = itemTip; $("#mos", el).appendChild(mos.el);
   let mode = mosaicMode(U.set.mosaic);
   const curMode = () => (!U.set.mosaicChosen && U.set.mosaic === "inv" && !D.items.some((x) => x.mark) ? "val" : U.set.mosaic);
   const paintMos = (animate) => {
+    if (RP.active) return;
     const mk = curMode(); mode = mosaicMode(mk);
     const colors = new Map(mode.L.map((x) => [x[0], x[2]]));
     const gs = mosaicGroups(U.set.mgroup, mode);
@@ -55,15 +57,17 @@ U.route("inicio", () => {
     $$("#mMode button", el).forEach((b) => b.classList.toggle("on", b.dataset.m === mk));
     $$("#mBy button", el).forEach((b) => b.classList.toggle("on", b.dataset.b === U.set.mgroup));
   };
-  $("#mMode", el).onclick = (e) => { const b = e.target.closest("button"); if (!b) return; U.set.mosaic = b.dataset.m; U.set.mosaicChosen = true; U.saveSet(); FX.play("tap"); paintMos(false); };
-  $("#mBy", el).onclick = (e) => { const b = e.target.closest("button"); if (!b) return; U.set.mgroup = b.dataset.b; U.saveSet(); FX.play("tap"); paintMos(true); };
+  S.replayInit(el, RP, mos, paintMos);
+  $("#mMode", el).onclick = (e) => { RP.stop && RP.active && RP.stop(true); const b = e.target.closest("button"); if (!b) return; U.set.mosaic = b.dataset.m; U.set.mosaicChosen = true; U.saveSet(); FX.play("tap"); paintMos(false); };
+  $("#mBy", el).onclick = (e) => { RP.stop && RP.active && RP.stop(true); const b = e.target.closest("button"); if (!b) return; U.set.mgroup = b.dataset.b; U.saveSet(); FX.play("tap"); paintMos(true); };
   $("#mKey", el).onclick = (e) => { const b = e.target.closest("button[data-q]"); if (b && b.dataset.q) U.go(qLink(b.dataset.q)); };
   // cifras
   const kpis = () => {
     const t = B.totals(), hl = B.health(), ins = B.insights().filter((x) => x.sev >= 1).length;
+    const pc = B.pace();
     $("#kpis", el).innerHTML = `<a class="kpi" href="#/analisis"><div><div class="v">${esc(B.moneyShort(t.val))}</div><div class="l">Valor del inventario</div><div class="s"><span data-count="${t.items}">0</span> artículos</div></div></a>
       <a class="kpi" href="#/resguardantes"><div><div class="v" data-count="${t.people}">0</div><div class="l">Resguardantes</div><div class="s">${B.int(t.areas)} áreas</div></div></a>
-      <a class="kpi" href="#/vivo"><div><div class="v"><span data-count="${t.pct}">0</span>%</div><div class="l">Avance de la revisión</div><div class="s">${B.int(t.rev)} de ${B.int(t.items)} revisados</div></div>${U.ring(t.pct, { size: 58, sw: 6, cls: t.pct >= 100 ? "done" : "" })}</a>
+      <a class="kpi" href="#/vivo"><div><div class="v"><span data-count="${t.pct}">0</span>%</div><div class="l">Avance de la revisión</div><div class="s">${B.int(t.rev)} de ${B.int(t.items)} revisados</div>${pc.ok && !pc.done ? `<div class="s">${pc.etaDays > 250 ? "Terminaría en más de un año" : pc.etaDays === 0 ? "Terminaría hoy" : "Termina hacia el " + esc(B.fdate(pc.eta))}</div>` : ""}</div>${U.ring(t.pct, { size: 58, sw: 6, cls: t.pct >= 100 ? "done" : "" })}</a>
       <a class="kpi" href="#/salud"><div><div class="v" data-count="${hl.score}">0</div><div class="l">Salud de los datos</div><div class="s">${ins ? B.plural(ins, "cosa") + " por atender" : "Todo en orden"}</div></div>${U.ring(hl.score, { size: 58, sw: 6, cls: hl.score < 70 ? "warn" : "done" })}</a>`;
     U.anim($("#kpis", el));
   };
@@ -120,11 +124,128 @@ U.route("inicio", () => {
     el, title: "Inicio",
     after() { paintMos(true); all(); },
     update(k) {
+      if (RP.active) { all(); return; }
       if (k === "marcas") { const ch = []; for (const it of D.items) { const v = it.mark ? it.mark.e + it.mark.c : ""; if (prevMarks.get(it.tok) !== v) ch.push(it.tok); } prevMarks = new Map(D.items.map((it) => [it.tok, it.mark ? it.mark.e + it.mark.c : ""])); paintMos(false); mos.flash(ch); }
       else if (k === "inv") paintMos(false);
       all();
     },
-    destroy() { mos.destroy(); D.wantCambios = false; },
+    destroy() { RP.stop && RP.stop(true); mos.destroy(); D.wantCambios = false; },
+  };
+});
+
+/* ================= REPRODUCIR LA REVISIÓN =================
+   El mosaico se «apaga» y se vuelve a encender artículo por artículo en el orden en que se revisó. El tiempo se comprime
+   (la línea avanza por marca, no por reloj) para que los días sin actividad no se vean como pausas largas. */
+S.replayInit = function (el, RP, mos, paintMos) {
+  const GREEN = "#45E0A0", RED = "#FF7B6B", PENDC = PEND, bar = $("#rp", el);
+  let evs = [], rank = new Map(), cumNo = [], pos = 0, shown = 0, playing = false, raf = 0, lt = 0, speed = 1;
+  const DUR = 16000;
+  const flat = { L: [["x"]], key: () => "x" };
+  const colorFn = (it) => { const r = rank.get(it.tok); return r === undefined || r >= shown ? PENDC : it.mark && it.mark.e === "no" ? RED : GREEN; };
+  const label = () => {
+    const i = Math.min(evs.length, Math.floor(pos)); const ev = evs[Math.max(0, i - 1)];
+    const si = i - (i ? cumNo[i - 1] : 0), no = i ? cumNo[i - 1] : 0;
+    $("#rpDate", bar).textContent = i ? B.fdt(ev.mark.at) : "Antes de empezar";
+    $("#rpN", bar).innerHTML = `<b>${B.int(i)}</b> de ${B.int(evs.length)} revisados · <span class="g">${B.int(si)} presentes</span> · <span class="r">${B.int(no)} no están</span>`;
+    const sl = $("#rpSl", bar); sl.value = String(Math.round(pos)); sl.setAttribute("aria-valuetext", `${B.int(i)} de ${B.int(evs.length)} revisados`);
+    $("#rpPlay", bar).innerHTML = playing ? icon("pause") : icon("play"); $("#rpPlay", bar).setAttribute("aria-label", playing ? "Pausar" : pos >= evs.length ? "Ver otra vez" : "Reproducir");
+  };
+  const apply = (flashFrom) => {
+    const n = Math.floor(pos);
+    if (n === shown && flashFrom === undefined) return;
+    const prev = shown; shown = n; mos.recolor(colorFn);
+    if (flashFrom !== undefined && n > prev && n - prev <= 60) mos.flash(evs.slice(prev, n).map((x) => x.tok));
+  };
+  const frame = (t) => {
+    if (!playing) return; const dt = Math.min(80, t - lt); lt = t;
+    pos = Math.min(evs.length, pos + (dt / DUR) * evs.length * speed);
+    apply(1); label();
+    if (pos >= evs.length) { playing = false; label(); FX.play("done"); return; }
+    raf = requestAnimationFrame(frame);
+  };
+  const play = () => { if (pos >= evs.length) { pos = 0; shown = 0; mos.recolor(colorFn); } playing = true; lt = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); label(); };
+  const pause = () => { playing = false; cancelAnimationFrame(raf); label(); };
+  const stop = (silent) => { if (!RP.active) return; playing = false; cancelAnimationFrame(raf); RP.active = false; bar.hidden = true; bar.innerHTML = ""; $("#mPlay", el).classList.remove("on"); if (!silent) paintMos(false); };
+  RP.stop = stop;
+  RP.start = () => {
+    if (RP.active) { stop(); return; }
+    evs = D.items.filter((it) => it.mark && it.mark.at).sort((a, b) => a.mark.at - b.mark.at);
+    if (evs.length < 3) { U.toast("Todavía hay muy pocas revisiones para reproducir. Cuando se marquen más artículos aparecerá aquí.", { kind: "warn" }); return; }
+    rank = new Map(evs.map((it, i) => [it.tok, i])); cumNo = []; let c = 0; for (const it of evs) { if (it.mark.e === "no") c++; cumNo.push(c); }
+    RP.active = true; pos = 0; shown = 0; speed = 1; $("#mPlay", el).classList.add("on");
+    bar.hidden = false;
+    bar.innerHTML = `<button class="rp-b" type="button" id="rpPlay"></button><div class="rp-m"><div class="rp-t"><b id="rpDate"></b><span id="rpN"></span></div><input type="range" id="rpSl" min="0" max="${evs.length}" step="1" value="0" aria-label="Línea del tiempo de la revisión"></div><div class="seg rp-s" id="rpSp" role="group" aria-label="Velocidad">${[1, 2, 4].map((v) => `<button type="button" data-v="${v}" class="${v === 1 ? "on" : ""}">${v}×</button>`).join("")}</div><button class="rp-x" type="button" id="rpX" aria-label="Salir de la reproducción">${icon("x")}</button>`;
+    $("#rpPlay", bar).onclick = () => (playing ? pause() : play());
+    $("#rpX", bar).onclick = () => stop();
+    $("#rpSp", bar).onclick = (e) => { const b = e.target.closest("button"); if (!b) return; speed = +b.dataset.v; $$("#rpSp button", bar).forEach((x) => x.classList.toggle("on", x === b)); };
+    const sl = $("#rpSl", bar);
+    sl.addEventListener("input", () => { pos = +sl.value; apply(); label(); });
+    sl.addEventListener("keydown", (e) => { if (e.key === " ") { e.preventDefault(); playing ? pause() : play(); } });
+    mos.set(mosaicGroups(U.set.mgroup, flat), colorFn, false);
+    $("#mKey", el).innerHTML = [["Presente", GREEN], ["No está", RED], ["Pendiente", PENDC]].map(([l, c]) => `<button type="button" disabled><i style="background:${c}"></i>${l}</button>`).join("");
+    $("#bSub", el).textContent = "Reproducción: cada cuadro se enciende en el orden en que se revisó. Los días sin actividad se saltan.";
+    play();
+  };
+  $("#mPlay", el).onclick = () => RP.start();
+};
+
+/* ================= MODO PANTALLA (para proyectar o dejar en un monitor) ================= */
+U.route("pantalla", () => {
+  const el = h(`<div class="tv"></div>`);
+  let mos = null, wake = null, tick = 0, fins = new Set(B.people().filter((p) => p.fin).map((p) => p.name)), prev = new Map();
+  const MODE = mosaicMode("inv"), COL = new Map(MODE.L.map((x) => [x[0], x[2]]));
+  const fx = (it) => COL.get(MODE.key(it));
+  const line = (x) => {
+    const it = x.it, who = U.nm(x.name);
+    if (x.k === "fin") return `<li class="new"><span class="dot fin"></span><div><b>${esc(who)} terminó su inventario</b><small>${esc(B.ago(x.at))}</small></div></li>`;
+    if (x.k === "extra") return `<li><span class="dot ex"></span><div><b>Extra ${esc(String(x.tok).replace(/^m/, ""))}</b><small>${esc(who)} · ${esc(x.n || "sin nota")} · ${esc(B.ago(x.at))}</small></div></li>`;
+    return `<li><span class="dot ${x.e === "no" ? "no" : "si"}"></span><div><b>${esc(it ? it.mb + " · " + U.txt(it.ds).slice(0, 46) : x.tok)}</b><small>${x.e === "no" ? "No está" : "Presente"} · ${esc(who)} · ${esc(B.ago(x.at))}</small></div></li>`;
+  };
+  const stats = () => {
+    const t = B.totals(), pc = B.pace(), ppl = B.people().filter((p) => p.name !== SIN);
+    const top = ppl.filter((p) => p.status === "curso").sort((a, b) => b.lastAt - a.lastAt).slice(0, 4);
+    const rh = $("#tvRing", el), fg = $(".fg", rh);
+    if (!fg) { rh.innerHTML = U.ring(t.pct, { size: 260, sw: 16, label: t.pct + "%" }); U.anim(rh); }
+    else { fg.dataset.p = t.pct; fg.style.strokeDashoffset = 100 - t.pct; $(".ring b", rh).textContent = t.pct + "%"; $(".ring", rh).classList.toggle("zero", !t.pct); }
+    $("#tvSub", el).innerHTML = `<b>${B.int(t.rev)}</b> de ${B.int(t.items)} artículos revisados`;
+    $("#tvK", el).innerHTML = [["si", t.si, "Presentes"], ["no", t.no, "No están"], ["pend", t.pend, "Pendientes"], ["fin", t.fin, "Resguardos terminados"]].map(([k, n, l]) => `<div class="k ${k}"><b>${B.int(n)}</b><small>${l}</small></div>`).join("");
+    const txt = B.paceText(); $("#tvPace", el).textContent = txt; $("#tvPace", el).hidden = !txt;
+    $("#tvNow", el).innerHTML = top.length ? top.map((p) => `<li>${U.avatar(p.name, "sm")}<div><b>${esc(U.nm(p.name))}</b><small>${p.pct}% · ${B.int(p.rev)} de ${B.int(p.total)}</small></div></li>`).join("") : `<li class="muted">Nadie revisando en este momento</li>`;
+    const feed = B.feed(7); $("#tvFeed", el).innerHTML = feed.length ? feed.map(line).join("") : `<li class="muted">Aquí aparecerá lo que se vaya marcando.</li>`;
+  };
+  const clock = () => { const d = new Date(); $("#tvClock", el).textContent = d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }) + " · " + cap(d.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })); };
+  const build = () => {
+    if (mos) mos.destroy(); const host = $("#tvMos", el); host.innerHTML = "";
+    const hgt = Math.max(240, host.clientHeight || innerHeight - 380);
+    mos = U.mosaic({ height: hgt }); mos.tip = itemTip; host.appendChild(mos.el);
+    mos.set(mosaicGroups(U.set.mgroup, MODE), fx, true);
+    prev = new Map(D.items.map((it) => [it.tok, it.mark ? it.mark.e + it.mark.c : ""]));
+  };
+  el.innerHTML = `<header class="tv-h"><div class="tv-b"><img src="assets/logo.png" alt="" height="44"><div><h1>Inventario CONALEP Chetumal</h1><p>Servicios Administrativos · revisión en vivo</p></div></div><div class="tv-c" id="tvClock"></div><div class="tv-a"><button class="btn" type="button" id="tvFs">${icon("expand")}<span>Pantalla completa</span></button><a class="btn" href="#/inicio" id="tvX">${icon("x")}<span>Salir</span></a></div></header>
+    <main class="tv-g"><section class="tv-l"><div id="tvRing"></div><p class="tv-sub" id="tvSub"></p><div class="tv-k" id="tvK"></div><p class="tv-pace" id="tvPace" hidden></p></section>
+      <section class="tv-m"><div class="tv-mos" id="tvMos"></div><div class="tv-key"><span><i style="background:#45E0A0"></i>Presente</span><span><i style="background:#FF7B6B"></i>No está</span><span><i style="background:${PEND}"></i>Pendiente</span></div></section>
+      <section class="tv-r"><h2>Revisando ahora</h2><ul class="tv-now" id="tvNow"></ul><h2>Lo último que se marcó</h2><ul class="tv-feed" id="tvFeed"></ul></section></main>`;
+  const fs = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); } catch (e) {} };
+  $("#tvFs", el).onclick = fs;
+  const key = (e) => { if (e.key === "f" || e.key === "F") { if (!/INPUT|TEXTAREA/.test(document.activeElement?.tagName || "")) fs(); } };
+  addEventListener("keydown", key);
+  const rs = U.debounce(() => { if (mos) build(); }, 400); addEventListener("resize", rs);
+  D.setPace("live"); document.body.classList.add("tvmode");
+  return {
+    el, title: "Modo pantalla",
+    async after() {
+      clock(); stats(); build(); tick = setInterval(() => { clock(); stats(); }, 15000);
+      try { wake = await navigator.wakeLock?.request("screen"); } catch (e) { wake = null; }
+    },
+    update(k) {
+      if (k !== "marcas" && k !== "inv") return;
+      const ch = []; for (const it of D.items) { const v = it.mark ? it.mark.e + it.mark.c : ""; if (prev.get(it.tok) !== v) ch.push(it.tok); } prev = new Map(D.items.map((it) => [it.tok, it.mark ? it.mark.e + it.mark.c : ""]));
+      if (mos) { mos.set(mosaicGroups(U.set.mgroup, MODE), fx, false); mos.flash(ch); }
+      stats();
+      const nowFin = B.people().filter((p) => p.fin).map((p) => p.name), nf = nowFin.filter((n) => !fins.has(n)); fins = new Set(nowFin);
+      if (nf.length) celebrate(nf[0]); else if (ch.length) FX.play("soft");
+    },
+    destroy() { document.body.classList.remove("tvmode"); clearInterval(tick); removeEventListener("keydown", key); removeEventListener("resize", rs); if (mos) mos.destroy(); try { wake && wake.release(); } catch (e) {} try { document.fullscreenElement && document.exitFullscreen(); } catch (e) {} D.setPace("normal"); },
   };
 });
 
@@ -142,9 +263,9 @@ const FACETS = [
 const COLS = {
   n: { h: "No.", w: "62px", k: "n", sort: 1, cell: (it) => `<span class="tnum muted">${it.n}</span>` },
   mb: { h: "Marbete", w: "100px", k: "mb", sort: 1, cell: (it) => `<span class="mbn">${esc(it.mb)}</span>` },
-  ds: { h: "Descripción", w: "minmax(220px,2.4fr)", k: "ds", sort: 1, cell: (it) => `${esc(U.txt(it.ds))}<span class="sub">${esc([it.ma, it.mo, B.blank(it.se) ? "" : "Serie " + it.se].filter((x) => x && !B.blank(x)).join(" · "))}</span>` },
-  rc: { h: "Resguardante", w: "minmax(150px,1.25fr)", k: "rc", sort: 1, cell: (it) => esc(U.nm(it.rc)) },
-  ar: { h: "Área", w: "minmax(140px,1.15fr)", k: "ar", sort: 1, cell: (it) => esc(U.txt(it.ar)) },
+  ds: { h: "Descripción", w: "minmax(220px,2.1fr)", k: "ds", sort: 1, cell: (it) => `${esc(U.txt(it.ds))}<span class="sub">${esc([it.ma, it.mo, B.blank(it.se) ? "" : "Serie " + it.se].filter((x) => x && !B.blank(x)).join(" · "))}</span>` },
+  rc: { h: "Resguardante", w: "minmax(170px,1.5fr)", k: "rc", sort: 1, cell: (it) => esc(U.nm(it.rc)) },
+  ar: { h: "Área", w: "minmax(160px,1.4fr)", k: "ar", sort: 1, cell: (it) => esc(U.txt(it.ar)) },
   im: { h: "Importe", w: "112px", k: "im", sort: 1, dir: -1, right: 1, cell: (it) => (it.im ? `<span class="tnum">${B.money(it.im)}</span>` : '<span class="muted">—</span>') },
   se: { h: "Serie", w: "130px", k: "se", sort: 1, cell: (it) => esc(B.blank(it.se) ? "" : it.se) },
   cu: { h: "Cuenta", w: "100px", k: "cu", sort: 1, cell: (it) => esc(it.cu) },
@@ -155,6 +276,8 @@ const COLS = {
   ph: { h: "", w: "48px", cell: (it) => (it.fotos ? `<span class="ph" title="${it.fotos} fotos">${icon("camera")}${it.fotos}</span>` : "") },
 };
 const COLS_DEF = ["n", "mb", "ds", "rc", "ar", "im", "inv", "ph"];
+// anchos de las columnas cuando la tabla va en modo angosto (tableta o ventana chica)
+const NARROW_W = { mb: "92px", ds: "minmax(180px,2fr)", rc: "minmax(140px,1.3fr)", ar: "minmax(130px,1.2fr)", im: "100px", inv: "104px" };
 const sorter = (k, dir) => {
   const S2 = { n: (a, b) => a.n - b.n, im: (a, b) => a.im - b.im, y: (a, b) => a.y - b.y, inv: (a, b) => (a.mark ? (a.mark.e === "no" ? 0 : 2) : 1) - (b.mark ? (b.mark.e === "no" ? 0 : 2) : 1), mb: (a, b) => a.mb.localeCompare(b.mb, "es", { numeric: true }) };
   const f = S2[k] || ((a, b) => String(a[k] || "").localeCompare(String(b[k] || ""), "es"));
@@ -180,10 +303,12 @@ U.route("lista", (r) => {
   if (r.q.q !== undefined) LS.q = r.q.q;
   if (r.q.f) { LS.f = {}; }
   const mobile = innerWidth < 700;
-  const colKeys = mobile ? ["mb", "ds", "inv"] : (U.set.cols && U.set.cols.length ? U.set.cols : COLS_DEF);
-  const colDefs = colKeys.map((k) => (mobile ? { ...COLS[k], w: { mb: "84px", ds: "minmax(0,1fr)", inv: "92px" }[k] } : COLS[k]));
+  // en pantallas medianas (tableta, ventana angosta) la tabla trae menos columnas para que quepa sin deslizar
+  const custom = !!(U.set.cols && U.set.cols.length), narrow = !mobile && !custom && innerWidth < 1300;
+  const colKeys = mobile ? ["mb", "ds", "inv"] : custom ? U.set.cols : narrow ? ["mb", "ds", "rc", "im", "inv"] : COLS_DEF;
+  const colDefs = colKeys.map((k) => (mobile ? { ...COLS[k], w: { mb: "84px", ds: "minmax(0,1fr)", inv: "92px" }[k] } : narrow ? { ...COLS[k], w: NARROW_W[k] || COLS[k].w } : COLS[k]));
   const el = h(`<div>${head("Lista completa", "Busca con palabras, números de marbete o frases como «sin serie», «mayor a 5000», «antes de 2010», «faltantes».", `<button class="btn" type="button" id="lXls">${icon("sheet")}<span>Excel</span></button><button class="btn" type="button" id="lPdf">${icon("file")}<span>PDF</span></button><button class="btn" type="button" id="lLbl">${icon("qr")}<span>Etiquetas</span></button>`)}
-    <div class="tools"><label class="sbox">${icon("search")}<input type="search" id="lq" placeholder="Busca o filtra: «computadoras sin serie», «area:biblioteca», «>10000»…" aria-label="Buscar en la lista" autocomplete="off"><button class="ib" type="button" id="lqx" aria-label="Borrar búsqueda" hidden>${icon("x")}</button></label><div class="facets" id="lf"></div><button class="btn ghost sm" type="button" id="lCols" aria-label="Columnas">${icon("cols")}<span>Columnas</span></button></div>
+    <div class="tools"><label class="sbox">${icon("search")}<input type="search" id="lq" placeholder="Busca o filtra: «computadoras sin serie»…" aria-label="Buscar en la lista" autocomplete="off"><button class="ib" type="button" id="lqx" aria-label="Borrar búsqueda" hidden>${icon("x")}</button></label><div class="facets" id="lf"></div><button class="btn ghost sm" type="button" id="lCols" aria-label="Columnas">${icon("cols")}<span>Columnas</span></button></div>
     <div class="parsed" id="lpar"></div><div id="lsel"></div><div class="sum" id="lsum"></div><div id="lt"></div></div>`);
   let base = [], view = [];
   const table = U.vtable({ cols: colDefs, rowH: U.set.density === "compact" ? 44 : 54, select: LS.sel, sortKey: LS.sort, sortDir: LS.dir, onOpen: (it) => S.openItem(it.tok), onSort: (k, d) => { LS.sort = k; LS.dir = d; apply(true); }, empty: () => U.empty("search", "Ningún artículo coincide", "Prueba con menos palabras o quita algún filtro.") });
@@ -271,9 +396,11 @@ U.route("resguardantes", () => {
     const sorts = { name: (a, b) => a.name.localeCompare(b.name, "es"), n: (a, b) => b.total - a.total, val: (a, b) => b.val - a.val, pct: (a, b) => b.pct - a.pct || b.lastAt - a.lastAt };
     ppl.sort(sorts[RS.sort]);
     const sum = all.reduce((s, p) => s + p.total, 0);
-    el.innerHTML = head("Resguardantes", `${B.int(all.filter((p) => p.name !== SIN).length)} personas con ${B.int(t.items)} artículos en total. ${sum === D.items.length ? "Los totales cuadran con el inventario." : "<b>Los totales no cuadran con el inventario.</b>"}`) +
+    el.innerHTML = head("Resguardantes", `${B.int(all.filter((p) => p.name !== SIN).length)} personas con ${B.int(t.items)} artículos en total. ${sum === D.items.length ? "Los totales cuadran con el inventario." : "<b>Los totales no cuadran con el inventario.</b>"}`, `<button class="btn" type="button" id="rPdf">${icon("file")}<span>Informe de avance (PDF)</span></button><button class="btn" type="button" id="rGap">${icon("file")}<span>Faltantes (PDF)</span></button>`) +
       `<div class="tools"><label class="sbox">${icon("search")}<input type="search" id="rq" placeholder="Buscar una persona" value="${esc(RS.q)}" aria-label="Buscar resguardante"></label><div class="seg" id="rst">${[["todos", "Todos"], ["curso", "En revisión"], ["fin", "Terminados"], ["nada", "Sin empezar"], ["dup", "Posibles duplicados"]].map(([k, l]) => `<button type="button" data-k="${k}" class="${RS.st === k ? "on" : ""}">${l}</button>`).join("")}</div><select class="inp" id="rso" style="width:auto" aria-label="Ordenar">${[["name", "Por nombre"], ["n", "Más artículos"], ["val", "Mayor valor"], ["pct", "Más avance"]].map(([k, l]) => `<option value="${k}" ${RS.sort === k ? "selected" : ""}>${l}</option>`).join("")}</select></div>
       <div class="pgrid">${ppl.map((p) => { const ar = B.groupBy(p.items, (x) => x.ar)[0]; return `<a class="pc ${p.fin ? "fin" : ""}" href="#/resguardante/${encodeURIComponent(p.name)}">${p.fin ? `<span class="stamp si">Inventariado</span>` : ""}<div class="pc-h">${U.avatar(p.name)}<div><b>${esc(U.nm(p.name))}</b><small>${esc(ar && ar.key ? U.txt(ar.key) : "Sin área")}</small></div></div><div class="pc-n"><div><div class="v" data-count="${p.total}">0</div><small>${p.total === 1 ? "artículo" : "artículos"} · ${esc(B.moneyShort(p.val))}</small></div><small class="muted" style="text-align:right">${p.rev ? `${p.pct}% revisado` : "Sin revisar"}${p.no ? `<br><span style="color:var(--red)">${B.plural(p.no, "no está", "no están")}</span>` : ""}</small></div><div class="bar"><i class="si" data-w="${(p.si / p.total) * 100}"></i><i class="no" data-w="${(p.no / p.total) * 100}"></i></div>${dupSet.has(p.name) ? `<span class="flag">${icon("people")}Parece duplicado de otro nombre</span>` : ""}</a>`; }).join("") || U.empty("search", "Nadie coincide con la búsqueda", "")}</div>`;
+    $("#rPdf", el).onclick = (e) => busyBtn(e.currentTarget, async () => { F.save(`informe_avance_${F.stamp()}.pdf`, await S.progressPdf()); U.toast("Informe de avance descargado.", { kind: "ok" }); });
+    $("#rGap", el).onclick = (e) => busyBtn(e.currentTarget, () => S.gapReport("pdf")).catch(U.fail);
     $("#rq", el).addEventListener("input", U.debounce((e) => { RS.q = e.target.value; draw(); const i = $("#rq", el); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 200));
     $("#rst", el).onclick = (e) => { const b = e.target.closest("button"); if (b) { RS.st = b.dataset.k; FX.play("tap"); draw(); } };
     $("#rso", el).onchange = (e) => { RS.sort = e.target.value; draw(); };
@@ -294,7 +421,7 @@ U.route("resguardante", (r) => {
     el.innerHTML = `<a class="back" href="#/resguardantes">${icon("left")}Resguardantes</a>
       <section class="ph-hero">${U.avatar(name, "lg")}<div><h1>${esc(U.nm(name))}</h1><div class="meta"><span><b>${B.int(p.total)}</b> artículos</span><span>Valor <b>${B.money(p.val)}</b></span><span><b>${B.int(areas.length)}</b> ${areas.length === 1 ? "área" : "áreas"}</span>${p.lastAt ? `<span>Última revisión ${esc(B.ago(p.lastAt))}</span>` : ""}</div></div>
         <div class="ph-a"><button class="btn pri sm" type="button" data-a="pdf">${icon("file")}<span>Resguardo PDF</span></button><button class="btn sm" type="button" data-a="xls">${icon("sheet")}<span>Excel</span></button><button class="btn sm" type="button" data-a="qr">${icon("qr")}<span>Etiquetas QR</span></button><button class="btn sm" type="button" data-a="acta">${icon("print")}<span>Acta de revisión</span></button><button class="btn sm" type="button" data-a="all">${icon("swap")}<span>Trasladar todo</span></button></div>
-        <div class="ph-r">${p.fin ? `<div class="bigstamp">Inventariado<small>${esc(B.fdate(p.fin.at || p.fin.t))}${p.fin.by ? " · " + esc(p.fin.by) : ""}</small></div>` : U.ring(p.pct, { size: 96, sw: 9, label: p.pct + "%" })}</div></section>
+        <div class="ph-r">${p.fin ? `<div class="bigstamp">Inventariado<small>${esc(B.fdate(p.fin.at || p.fin.t))}${p.fin.by ? " · " + esc(p.fin.by) : ""}</small></div>${p.fin.sig ? `<div class="sigbox">${U.sigSvg(p.fin.sig)}<small>Firmó ${esc(U.nm(name))}</small></div>` : ""}` : U.ring(p.pct, { size: 96, sw: 9, label: p.pct + "%" })}</div></section>
       <div class="ph-stats"><div class="st si"><div class="v" data-count="${p.si}">0</div><small>Presentes</small></div><div class="st no"><div class="v" data-count="${p.no}">0</div><small>No están</small></div><div class="st pe"><div class="v" data-count="${p.pend}">0</div><small>Pendientes</small></div><div class="st"><div class="v">${B.int(p.reg)} / ${B.int(p.mal)}</div><small>Regular / malo</small></div></div>
       <nav class="tabs">${[["articulos", "Artículos", p.total], ["revision", "Revisión", p.rev], ["historial", "Historial"], ["resumen", "Resumen"]].map(([k, l, n]) => `<a href="#/resguardante/${encodeURIComponent(name)}?t=${k}" class="${tab === k ? "on" : ""}">${l}${n !== undefined ? `<span class="cnt">${B.int(n)}</span>` : ""}</a>`).join("")}</nav><div id="pt"></div>`;
     el.querySelector(".ph-hero").onclick = (e) => { const a = e.target.closest("[data-a]"); if (a) personAction(a.dataset.a, name, a); };
@@ -307,7 +434,7 @@ U.route("resguardante", (r) => {
   function updHead() {
     const p = B.person(name); const st = $$(".ph-stats .v", el);
     if (st.length === 4) { st[0].textContent = B.int(p.si); st[1].textContent = B.int(p.no); st[2].textContent = B.int(p.pend); st[3].textContent = B.int(p.reg) + " / " + B.int(p.mal); }
-    const rr = $(".ph-r", el); if (rr) { rr.innerHTML = p.fin ? `<div class="bigstamp">Inventariado<small>${esc(B.fdate(p.fin.at || p.fin.t))}${p.fin.by ? " · " + esc(p.fin.by) : ""}</small></div>` : U.ring(p.pct, { size: 96, sw: 9, label: p.pct + "%" }); U.anim(rr); }
+    const rr = $(".ph-r", el); if (rr) { rr.innerHTML = p.fin ? `<div class="bigstamp">Inventariado<small>${esc(B.fdate(p.fin.at || p.fin.t))}${p.fin.by ? " · " + esc(p.fin.by) : ""}</small></div>${p.fin.sig ? `<div class="sigbox">${U.sigSvg(p.fin.sig)}<small>Firmó ${esc(U.nm(name))}</small></div>` : ""}` : U.ring(p.pct, { size: 96, sw: 9, label: p.pct + "%" }); U.anim(rr); }
   }
 });
 async function personAction(a, name, btn) {
@@ -321,6 +448,50 @@ async function personAction(a, name, btn) {
     else if (a === "all") S.moveItems(items.map((x) => x.tok), { nota: "Traslado de todo el resguardo de " + name });
   } catch (e) { U.fail(e); }
 }
+/* Informe general de avance: una hoja para la dirección con el estado de cada persona */
+S.progressPdf = async () => {
+  const t = B.totals(), ppl = B.people().filter((p) => p.name !== SIN);
+  const ord = { fin: 2, curso: 1, nada: 0 };
+  const sorted = ppl.slice().sort((a, b) => ord[b.status] - ord[a.status] || b.pct - a.pct || a.name.localeCompare(b.name, "es"));
+  const ST = { fin: "Inventariado", curso: "En revisión", nada: "Sin iniciar" };
+  const cols = [{ h: "#", w: 6, right: 1 }, { h: "Resguardante", w: 62 }, { h: "Estado", w: 20 }, { h: "Artículos", w: 15, right: 1 }, { h: "Presentes", w: 15, right: 1 }, { h: "No están", w: 14, right: 1 }, { h: "Pendientes", w: 16, right: 1 }, { h: "Avance", w: 13, right: 1 }, { h: "Valor faltante", w: 24, right: 1 }, { h: "Última marca", w: 22, right: 1 }];
+  const rows = sorted.map((p, i) => [String(i + 1), p.name, ST[p.status], B.int(p.total), B.int(p.si), B.int(p.no), B.int(p.pend), p.pct + "%", p.valNo ? B.money(p.valNo, 0) : "", p.lastAt ? new Date(p.lastAt).toLocaleDateString("es-MX") : ""]);
+  const foot = `${t.fin} de ${t.people} personas inventariadas  ·  ${B.int(t.rev)} de ${B.int(t.items)} artículos revisados (${t.pct}%)  ·  No encontrados: ${B.int(t.no)} (${B.money(t.valNo, 0)})`;
+  return F.pdfTable({ title: "INFORME DE AVANCE DEL INVENTARIO · CONALEP CHETUMAL", subtitle: "SERVICIOS ADMINISTRATIVOS", info: `Fecha: ${F.fecha()}   ·   Valor total: ${B.money(t.val, 0)}`, cols, rows, footer: [foot, B.paceText()], signature: [{ name: "", role: "Elaboró" }, { name: "", role: "Vo. Bo." }] });
+};
+/* Reporte de faltantes y diferencias: lo que no se encontró, lo que sobra y lo que está en mal estado */
+S.gapPdf = async () => {
+  const g = B.gaps(), t = B.totals();
+  const cols = [{ h: "#", w: 6, right: 1 }, { h: "Tipo", w: 17 }, { h: "Marbete", w: 14 }, { h: "Descripción", w: 52 }, { h: "Serie", w: 24 }, { h: "Resguardante", w: 44 }, { h: "Área", w: 36 }, { h: "Valor", w: 20, right: 1 }, { h: "Detalle", w: 46 }];
+  const det = (it) => [it.mark?.n || "", it.mark?.by ? "Por " + it.mark.by : "", it.mark?.at ? B.fdt(it.mark.at) : ""].filter(Boolean).join(" · ");
+  const rows = []; let k = 0;
+  for (const it of g.no) rows.push([String(++k), "No está", it.mb, it.ds, B.blank(it.se) ? "" : it.se, it.rc, it.ar, B.money(it.im, 0), det(it)]);
+  for (const x of g.extra) rows.push([String(++k), "Sobrante", x.mb, x.known ? x.known.ds : x.n || "Encontrado sin estar en la lista", x.known && !B.blank(x.known.se) ? x.known.se : "", x.name, x.known ? "En la lista a nombre de: " + x.known.rc : "", x.known ? B.money(x.known.im, 0) : "", [x.known && x.n ? x.n : "", x.by ? "Por " + x.by : "", x.at ? B.fdt(x.at) : ""].filter(Boolean).join(" · ")]);
+  for (const it of g.mal) rows.push([String(++k), "Mal estado", it.mb, it.ds, B.blank(it.se) ? "" : it.se, it.rc, it.ar, B.money(it.im, 0), det(it)]);
+  if (!rows.length) rows.push(["", "", "", "Todavía no hay faltantes, sobrantes ni artículos en mal estado registrados.", "", "", "", "", ""]);
+  const foot = `No están: ${B.int(g.no.length)} (${B.money(g.valNo, 0)})  ·  Sobrantes: ${B.int(g.extra.length)}  ·  Mal estado: ${B.int(g.mal.length)} (${B.money(g.valMal, 0)})`;
+  const sub = `Revisados ${B.int(t.rev)} de ${B.int(t.items)} artículos (${t.pct}%). Los pendientes no se incluyen: no se sabe todavía si están.`;
+  return F.pdfTable({ title: "REPORTE DE FALTANTES Y DIFERENCIAS · CONALEP CHETUMAL", subtitle: "SERVICIOS ADMINISTRATIVOS", info: `Fecha: ${F.fecha()}`, cols, rows, footer: [foot, sub], signature: [{ name: "", role: "Elaboró" }, { name: "", role: "Vo. Bo." }] });
+};
+S.gapXlsx = async () => {
+  const g = B.gaps(), t = B.totals();
+  const sub = [F.fecha() + "   ·   Revisados " + B.int(t.rev) + " de " + B.int(t.items) + " (" + t.pct + "%)"];
+  const itRow = (it, i) => [i + 1, it.mb, it.ds, B.blank(it.se) ? "" : it.se, it.rc, it.ar, it.im, it.mark?.n || "", it.mark?.by || "", it.mark?.at ? B.fdt(it.mark.at) : ""];
+  const head = ["#", "Marbete", "Descripción", "Serie", "Resguardante", "Área", "Valor", "Observaciones", "Marcó", "Fecha"], widths = [5, 10, 48, 20, 36, 30, 14, 36, 18, 18];
+  const sNo = F.table({ name: "No están", title: "ARTÍCULOS QUE NO SE ENCONTRARON", subs: sub, head, rows: g.no.map(itRow), widths, money: [6], total: { labelCol: 5, label: "TOTAL", sumCols: [6] } });
+  const sMal = F.table({ name: "Mal estado", title: "ARTÍCULOS EN MAL ESTADO", subs: sub, head, rows: g.mal.map(itRow), widths, money: [6], total: { labelCol: 5, label: "TOTAL", sumCols: [6] } });
+  const sEx = F.table({ name: "Sobrantes", title: "ENCONTRADOS QUE NO ESTÁN EN LA LISTA", subs: sub, head: ["#", "Marbete / código", "Descripción", "Nota", "Revisión de", "En la lista a nombre de", "Marcó", "Fecha"], rows: g.extra.map((x, i) => [i + 1, x.mb, x.known ? x.known.ds : x.n, x.known ? x.n : "", x.name, x.known ? x.known.rc : "", x.by, x.at ? B.fdt(x.at) : ""]), widths: [5, 16, 50, 30, 36, 36, 18, 18] });
+  const by = new Map(); const row = (n) => { let r = by.get(n); if (!r) by.set(n, (r = { n, no: 0, val: 0, mal: 0, ex: 0 })); return r; };
+  for (const it of g.no) { const r = row(it.rc); r.no++; r.val += it.im; } for (const it of g.mal) row(it.rc).mal++; for (const x of g.extra) row(x.name).ex++;
+  const res = F.table({ name: "Por resguardante", title: "RESUMEN POR RESGUARDANTE", subs: sub, head: ["Resguardante", "No están", "Valor faltante", "Mal estado", "Sobrantes"], rows: [...by.values()].sort((a, b) => b.val - a.val || a.n.localeCompare(b.n, "es")).map((r) => [r.n, r.no, r.val, r.mal, r.ex]), widths: [44, 12, 18, 12, 12], money: [2], ints: [1, 3, 4], total: { labelCol: 0, sumCols: [1, 2, 3, 4] } });
+  return F.xlsx([res, sNo, sEx, sMal]);
+};
+S.gapReport = async (kind) => {
+  const g = B.gaps();
+  if (kind === "xls") F.save(`faltantes_${F.stamp()}.xlsx`, await S.gapXlsx()); else F.save(`faltantes_${F.stamp()}.pdf`, await S.gapPdf());
+  const none = !g.no.length && !g.extra.length && !g.mal.length;
+  U.toast(none ? "Descargado. Todavía no hay faltantes, sobrantes ni artículos en mal estado." : `Reporte descargado: ${B.plural(g.no.length, "no está", "no están")}, ${B.plural(g.extra.length, "sobrante")}, ${B.plural(g.mal.length, "en mal estado", "en mal estado")}.`, { kind: "ok" });
+};
 function resguardoPdf(name, items) {
   const cols = pdfCols(false);
   const rows = items.map((it, i) => cols.map((c, j) => (j === 0 ? String(i + 1) : j === 1 ? String(it.n) : D.clean(it.row[c.k + 1]))));
@@ -338,12 +509,12 @@ function actaPdf(name) {
   const cols = [{ h: "#", w: 7, right: 1 }, { h: "Marbete", w: 16 }, { h: "Descripción", w: 70 }, { h: "Revisión", w: 18 }, { h: "Estado", w: 14 }, { h: "Observaciones", w: 44 }];
   const rows = p.items.map((it, i) => [String(i + 1), it.mb, it.ds, it.mark ? EST[it.mark.e] : "Pendiente", it.mark?.e === "si" ? CND[it.mark.c] || "Bueno" : "", it.mark?.n || ""]);
   const ex = Object.entries(p.extras || {}); ex.forEach(([tok, x], i) => rows.push([String(p.items.length + i + 1), tok.replace(/^m/, ""), "Encontrado durante la revisión (no estaba en la lista)", "Extra", "", x.n || ""]));
-  return F.pdfTable({ title: "ACTA DE REVISIÓN DE INVENTARIO · CONALEP CHETUMAL", subtitle: "RESGUARDO DE: " + name, info: `Fecha: ${F.fecha()}${p.inicio ? "   ·   Inicio: " + new Date(p.inicio).toLocaleDateString("es-MX") : ""}${p.fin ? "   ·   Fin: " + new Date(p.fin.at || p.fin.t).toLocaleDateString("es-MX") : ""}`, cols, rows, landscape: false, footer: `Presentes: ${p.si}   No están: ${p.no}   Pendientes: ${p.pend}   Regular: ${p.reg}   Malo: ${p.mal}${ex.length ? "   Extras: " + ex.length : ""}   Valor de lo que falta: ${B.money(p.valNo)}`, signature: [{ name, role: "Resguardante" }, { name: D.user, role: "Revisó" }] });
+  return F.pdfTable({ title: "ACTA DE REVISIÓN DE INVENTARIO · CONALEP CHETUMAL", subtitle: "RESGUARDO DE: " + name, info: `Fecha: ${F.fecha()}${p.inicio ? "   ·   Inicio: " + new Date(p.inicio).toLocaleDateString("es-MX") : ""}${p.fin ? "   ·   Fin: " + new Date(p.fin.at || p.fin.t).toLocaleDateString("es-MX") : ""}`, cols, rows, landscape: false, footer: `Presentes: ${p.si}   No están: ${p.no}   Pendientes: ${p.pend}   Regular: ${p.reg}   Malo: ${p.mal}${ex.length ? "   Extras: " + ex.length : ""}   Valor de lo que falta: ${B.money(p.valNo)}`, signature: [{ name, role: "Resguardante", sig: p.fin && p.fin.sig }, { name: D.user, role: "Revisó" }] });
 }
 function personTable(list, host, opts = {}) {
-  const mob = innerWidth < 700, keys = mob ? ["mb", "ds", "inv"] : ["n", "mb", "ds", "ar", "im", "inv", "ph"];
+  const mob = innerWidth < 700, narrow = !mob && innerWidth < 1130, keys = mob ? ["mb", "ds", "inv"] : narrow ? ["mb", "ds", "ar", "im", "inv"] : ["n", "mb", "ds", "ar", "im", "inv", "ph"];
   const sel = new Set();
-  const t = U.vtable({ cols: keys.map((k) => (mob ? { ...COLS[k], w: { mb: "84px", ds: "minmax(0,1fr)", inv: "92px" }[k] } : COLS[k])), rowH: 54, select: sel, onOpen: (it) => S.openItem(it.tok), onSort: (k, d) => { list.sort(sorter(k, d)); t.set(list, true); } });
+  const t = U.vtable({ cols: keys.map((k) => (mob ? { ...COLS[k], w: { mb: "84px", ds: "minmax(0,1fr)", inv: "92px" }[k] } : narrow ? { ...COLS[k], w: NARROW_W[k] || COLS[k].w } : COLS[k])), rowH: 54, select: sel, onOpen: (it) => S.openItem(it.tok), onSort: (k, d) => { list.sort(sorter(k, d)); t.set(list, true); } });
   const bar = h(`<div></div>`);
   t.onSel = () => { if (!sel.size) { bar.innerHTML = ""; return; } bar.innerHTML = `<div class="selbar"><b>${B.plural(sel.size, "seleccionado")}</b><button class="btn sm" type="button" data-s="move">${icon("swap")}<span>Trasladar</span></button><button class="btn sm" type="button" data-s="area">${icon("map")}<span>Cambiar área</span></button><button class="btn sm" type="button" data-s="lbl">${icon("qr")}<span>Etiquetas</span></button><button class="btn sm" type="button" data-s="clr">${icon("x")}<span>Quitar</span></button></div>`; };
   bar.onclick = (e) => { const a = e.target.closest("[data-s]")?.dataset.s; if (!a) return; const toks = [...sel]; if (a === "clr") { sel.clear(); t.refresh(); t.onSel(); } else if (a === "move") S.moveItems(toks, { done: () => { sel.clear(); t.onSel(); } }); else if (a === "area") changeArea(toks, () => { sel.clear(); t.onSel(); }); else if (a === "lbl") { window.__labelSel = toks; U.go("#/etiquetas?src=sel"); } };
@@ -477,8 +648,8 @@ U.route("areas", () => {
     const top = g.slice(0, 60); const rest = g.slice(60); const data = top.map((x) => ({ g: x, v: x.n }));
     if (rest.length) data.push({ g: { key: `Otras ${rest.length} áreas`, n: rest.reduce((s, x) => s + x.n, 0), val: rest.reduce((s, x) => s + x.val, 0), other: true }, v: rest.reduce((s, x) => s + x.n, 0) });
     const vmax = Math.max(...data.map((d) => d.g.val / d.g.n));
-    U.squarify(data, 0, 0, W, H).forEach((r, i) => { const k = Math.sqrt((r.g.val / r.g.n) / vmax); const col = `color-mix(in srgb, #7FE0B8 ${Math.round(12 + k * 70)}%, #00281F)`; const b = h(`<button type="button" role="listitem" style="left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;background:${col};animation-delay:${i * 12}ms" data-tip="${esc(`<b>${esc(U.txt(r.g.key))}</b><br>${B.plural(r.g.n, "artículo")}<br>${B.money(r.g.val)}`)}">${r.w > 84 && r.h > 34 ? `<b>${esc(U.txt(r.g.key))}</b>` : ""}${r.w > 44 && r.h > (r.w > 84 ? 54 : 26) ? `<small>${B.int(r.g.n)}</small>` : ""}</button>`); b.onclick = () => { if (!r.g.other) U.go(qLink('area:"' + r.g.key + '"')); }; tm.appendChild(b); });
-    const list = () => { const qq = B.norm(q); const rows = g.filter((x) => !qq || B.norm(x.key).includes(qq)); $("#al", el).innerHTML = `<div class="hb" style="gap:0">${rows.map((x) => `<a class="hb-r" href="${qLink('area:"' + x.key + '"')}" style="text-decoration:none;color:inherit;grid-template-columns:minmax(0,1fr) 120px 140px 90px"><span class="hb-l">${esc(U.txt(x.key))}${av.has(x.key) ? ` <span class="flag" data-tip="Parece la misma área que otra escrita diferente">${icon("map")}variante</span>` : ""}</span><span class="tnum muted" style="text-align:right">${B.plural(new Set(x.items.map((i) => i.rc)).size, "persona")}</span><b class="hb-v">${B.money(x.val, 0)}</b><b class="hb-v">${B.int(x.n)}</b></a>`).join("")}</div>`; };
+    U.squarify(data, 0, 0, W, H).forEach((r, i) => { const k = Math.sqrt((r.g.val / r.g.n) / vmax); const col = `color-mix(in srgb, #7FE0B8 ${Math.round(12 + k * 70)}%, #00281F)`; const b = h(`<button type="button" role="listitem" aria-label="${esc(U.txt(r.g.key))}: ${B.plural(r.g.n, "artículo")}" style="left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;background:${col};animation-delay:${i * 12}ms" data-tip="${esc(`<b>${esc(U.txt(r.g.key))}</b><br>${B.plural(r.g.n, "artículo")}<br>${B.money(r.g.val)}`)}">${r.w > 84 && r.h > 34 ? `<b>${esc(U.txt(r.g.key))}</b>` : ""}${r.w > 44 && r.h > (r.w > 84 ? 54 : 26) ? `<small>${B.int(r.g.n)}</small>` : ""}</button>`); b.onclick = () => { if (!r.g.other) U.go(qLink('area:"' + r.g.key + '"')); }; tm.appendChild(b); });
+    const list = () => { const qq = B.norm(q); const rows = g.filter((x) => !qq || B.norm(x.key).includes(qq)); $("#al", el).innerHTML = `<div class="hb" style="gap:0">${rows.map((x) => `<a class="hb-r al" href="${qLink('area:"' + x.key + '"')}" style="text-decoration:none;color:inherit"><span class="hb-l">${esc(U.txt(x.key))}${av.has(x.key) ? ` <span class="flag" data-tip="Parece la misma área que otra escrita diferente">${icon("map")}variante</span>` : ""}</span><span class="tnum muted" style="text-align:right">${B.plural(new Set(x.items.map((i) => i.rc)).size, "persona")}</span><b class="hb-v">${B.money(x.val, 0)}</b><b class="hb-v">${B.int(x.n)}</b></a>`).join("")}</div>`; };
     list(); $("#aq", el).addEventListener("input", (e) => { q = e.target.value; list(); });
   };
   return { el, title: "Áreas", after: draw, update: U.debounce(draw, 400), retheme: draw };
@@ -492,8 +663,8 @@ U.route("vivo", () => {
     const t = B.totals(), ppl = B.people().filter((p) => p.name !== SIN);
     const curso = ppl.filter((p) => p.status === "curso").sort((a, b) => b.lastAt - a.lastAt), fin = ppl.filter((p) => p.status === "fin").sort((a, b) => (b.fin.at || 0) - (a.fin.at || 0)), nada = ppl.filter((p) => p.status === "nada");
     const feed = B.feed(40);
-    el.innerHTML = head("Revisión en vivo", "Lo que se marca con la app aparece aquí solo, cada 10 segundos.", `<span class="live-h"><i></i>En vivo</span>`) +
-      `<section class="overall">${U.ring(t.pct, { size: 120, sw: 11, label: t.pct + "%" })}<div><h2>Avance de la revisión de inventario</h2><p>${t.rev ? `Van ${B.int(t.rev)} de ${B.int(t.items)} artículos revisados.` : "Todavía no empieza ninguna revisión. Abre la app de celular y escanea los marbetes."}</p><div class="ov-n"><div><b data-count="${t.si}">0</b><small>Presentes</small></div><div><b data-count="${t.no}">0</b><small>No están</small></div><div><b data-count="${t.fin}">0</b><small>Resguardos terminados</small></div><div><b data-count="${t.started}">0</b><small>En revisión</small></div></div></div></section>
+    el.innerHTML = head("Revisión en vivo", "Lo que se marca con la app aparece aquí solo, cada 10 segundos.", `<a class="btn" href="#/pantalla">${icon("tv")}<span>Modo pantalla</span></a><span class="live-h"><i></i>En vivo</span>`) +
+      `<section class="overall">${U.ring(t.pct, { size: 120, sw: 11, label: t.pct + "%" })}<div><h2>Avance de la revisión de inventario</h2><p>${t.rev ? `Van ${B.int(t.rev)} de ${B.int(t.items)} artículos revisados.` : "Todavía no empieza ninguna revisión. Abre la app de celular y escanea los marbetes."}</p>${t.rev && B.paceText() ? `<p class="pace">${icon("clock")}<span>${esc(B.paceText())}</span></p>` : ""}<div class="ov-n"><div><b data-count="${t.si}">0</b><small>Presentes</small></div><div><b data-count="${t.no}">0</b><small>No están</small></div><div><b data-count="${t.fin}">0</b><small>Resguardos terminados</small></div><div><b data-count="${t.started}">0</b><small>En revisión</small></div></div></div></section>
       <div class="grid" style="grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);align-items:start" id="lvg"><div class="grid">
       ${curso.length ? `<section><div class="pnl-h"><h2>En revisión ahora · ${curso.length}</h2></div><div class="lv-grid">${curso.map((p) => `<a class="lv" href="#/resguardante/${encodeURIComponent(p.name)}?t=revision"><div class="lv-t">${U.avatar(p.name)}<div><b>${esc(U.nm(p.name))}</b><small>${esc(B.ago(p.lastAt))}</small></div>${U.ring(p.pct, { size: 44, sw: 5, label: p.pct })}</div><div class="bigbar"><i class="si" data-w="${(p.si / p.total) * 100}"></i><i class="no" data-w="${(p.no / p.total) * 100}"></i></div><div class="lv-n"><span><b>${B.int(p.si)}</b> presentes</span><span><b>${B.int(p.no)}</b> no están</span><span><b>${B.int(p.pend)}</b> pendientes</span></div></a>`).join("")}</div></section>` : ""}
       ${fin.length ? `<section><div class="pnl-h"><h2>Terminados · ${fin.length}</h2></div><div class="lv-grid">${fin.map((p) => `<a class="lv" href="#/resguardante/${encodeURIComponent(p.name)}"><div class="lv-t">${U.avatar(p.name)}<div><b>${esc(U.nm(p.name))}</b><small>Terminó ${esc(B.ago(p.fin.at || p.fin.t))}</small></div><span class="stamp si">Inventariado</span></div><div class="lv-n"><span><b>${B.int(p.si)}</b> presentes</span><span><b>${B.int(p.no)}</b> no están</span><span><b>${B.int(p.pend)}</b> sin revisar</span></div></a>`).join("")}</div></section>` : ""}
@@ -523,7 +694,7 @@ U.route("analisis", () => {
   const el = h(`<div></div>`);
   const draw = () => {
     const t = B.totals(); const yr = new Date().getFullYear();
-    el.innerHTML = head("Análisis", `${B.int(t.items)} artículos con un valor original de ${B.money(t.val)}. Toca cualquier barra para ver esos artículos.`, `<button class="btn" type="button" id="aX">${icon("sheet")}<span>Excel con resúmenes</span></button>`) +
+    el.innerHTML = head("Análisis", `${B.int(t.items)} artículos con un valor original de ${B.money(t.val)}. Toca cualquier barra para ver esos artículos.`, `<button class="btn" type="button" id="aG">${icon("file")}<span>Faltantes (PDF)</span></button><button class="btn" type="button" id="aGx">${icon("sheet")}<span>Faltantes (Excel)</span></button><button class="btn" type="button" id="aX">${icon("sheet")}<span>Excel con resúmenes</span></button>`) +
       `<div class="grid g2"><section class="pnl"><div class="pnl-h"><div><h2>Valor por área</h2><p>Las 12 áreas con más valor.</p></div></div><div id="c1"></div></section>
       <section class="pnl"><div class="pnl-h"><div><h2>Artículos por año de compra</h2><p>Según la fecha de factura.</p></div></div><div id="c2"></div></section>
       <section class="pnl"><div class="pnl-h"><div><h2>Estado de la revisión</h2></div></div><div id="c7"></div></section>
@@ -557,6 +728,8 @@ U.route("analisis", () => {
       const host = $("#c9", el); if (!host) return; host.innerHTML = ""; host.appendChild(U.heat(days));
     }).catch(() => { const host = $("#c9", el); if (host) host.innerHTML = '<p class="muted">No se pudo cargar la bitácora.</p>'; });
     $("#aX", el).onclick = (e) => busyBtn(e.currentTarget, () => S.exportAll());
+    $("#aG", el).onclick = (e) => busyBtn(e.currentTarget, () => S.gapReport("pdf")).catch(U.fail);
+    $("#aGx", el).onclick = (e) => busyBtn(e.currentTarget, () => S.gapReport("xls")).catch(U.fail);
     U.anim(el);
   };
   return { el, title: "Análisis", after: draw, update: U.debounce(draw, 500) };
@@ -769,10 +942,12 @@ U.route("ajustes", () => {
       <div class="set"><div><b>Actualizar ahora</b><small>${D.lastSync ? "Última actualización " + esc(B.ago(D.lastSync)) : "Sin actualizar todavía"}. Se revisa sola cada 30 segundos.</small></div><button class="btn sm" type="button" id="ref">${icon("refresh")}<span>Actualizar</span></button></div>
       <div class="set"><div><b>Atajos de teclado</b><small>Para trabajar sin ratón.</small></div><button class="btn sm" type="button" id="keys">${icon("key")}<span>Ver atajos</span></button></div>
       <div class="set"><div><b>App de celular</b><small>Para revisar el inventario escaneando los QR.</small></div><a class="btn sm" href="/app/" target="_blank" rel="noopener">${icon("phone")}<span>Abrir</span></a></div>
-      <div class="set"><div><b>Portal de inventario 3.0</b><small>${B.plural(D.items.length, "artículo")} · ${esc(String(Object.keys(D.marcas).length))} revisiones · ${esc(String(Object.keys(D.fotos).length))} artículos con foto</small></div><button class="btn ghost sm" type="button" id="cred">Créditos</button></div>
+      <div class="set"><div><b>Portal de inventario${window.AYUDA && window.AYUDA.version ? " " + esc(window.AYUDA.version) : ""}</b><small>${B.plural(D.items.length, "artículo")} · ${B.plural(Object.keys(D.marcas).length, "revisión", "revisiones")} · ${B.plural(Object.keys(D.fotos).length, "artículo con foto", "artículos con foto")}</small></div><button class="btn ghost sm" type="button" id="cred">Créditos</button></div>
     </div></section></div>`;
   };
   draw();
+  const nameSw = () => el.querySelectorAll(".sw").forEach((b) => b.setAttribute("aria-label", b.closest(".set")?.querySelector("b")?.textContent || "Opción"));
+  nameSw(); new MutationObserver(nameSw).observe(el, { childList: true, subtree: true });
   el.addEventListener("click", async (e) => {
     const s = e.target.closest("[data-sw]");
     if (s) { const k = s.dataset.sw; if (k === "density") U.set.density = U.set.density === "compact" ? "normal" : "compact"; else U.set[k] = !U.set[k]; U.saveSet(); FX.play("tap"); s.setAttribute("aria-checked", k === "density" ? U.set.density === "compact" : !!U.set[k]); return; }
@@ -800,7 +975,7 @@ U.route("articulo", (r) => {
   };
   return { el, title: "Marbete " + (D.byTok.get(tok)?.mb || ""), after: draw, update: U.debounce(draw, 200) };
 });
-function factsLite(it) { return `<dl class="facts">${D.inv.h.map((hh) => [hh, D.cell(it, hh)]).filter(([, v]) => v).map(([k, v]) => `<dt>${esc(B.smart(k))}</dt><dd>${esc(v)}</dd>`).join("")}</dl>${S.ctxHtml(it)}`; }
+function factsLite(it) { return `<dl class="facts">${D.inv.h.map((hh) => [hh, D.cell(it, hh)]).filter(([, v]) => v).map(([k, v]) => `<dt>${esc(B.smart(k))}</dt><dd>${esc(U.fv(k, v))}</dd>`).join("")}</dl>${S.ctxHtml(it)}`; }
 
 S.start();
 })();

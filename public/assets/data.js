@@ -119,6 +119,12 @@ function derive() {
   attachMarks(false); attachFotos(false);
   D.rev++;
 }
+/* El servidor sella cada marca con la hora en que llegó (sat). La app manda además la hora real en que se marcó (t, ya corregida
+   con el reloj del servidor). Si el teléfono estuvo sin internet, la hora real es la que importa: se usa como «at». */
+function realTimes(docs) {
+  const fix = (m) => { if (!m || typeof m.t !== "number" || typeof m.at !== "number" || m.sat !== undefined) return; if (m.t > 1.5e12 && m.t <= m.at + 60e3 && m.at - m.t < 45 * 864e5) { m.sat = m.at; m.at = m.t; } };
+  for (const d of Object.values(docs || {})) { if (!d) continue; for (const m of Object.values(d.marks || {})) fix(m); for (const x of Object.values(d.extras || {})) fix(x); fix(d.fin); }
+}
 function attachMarks(bump = true) {
   for (const it of D.items) it.mark = null;
   D.people = new Map();
@@ -150,7 +156,7 @@ const LOAD = {
   async marcas() {
     const r = await db({ op: "list", collection: "marcas" });
     const m = {}; for (const d of r.docs) m[d.id] = d.data;
-    D.marcas = m; D.v.marcas = r.v; D.stale.marcas = false;
+    realTimes(m); D.marcas = m; D.v.marcas = r.v; D.stale.marcas = false;
     attachMarks(); emit("marcas"); cacheSave("marcas");
   },
   async fotos() {
@@ -171,7 +177,7 @@ D.loadCambios = async (force) => { if (!D.cambios || force) await LOAD.cambios()
 D.boot = async () => {
   const [ci, cm, cf] = await Promise.all([IDB.get("inv"), IDB.get("marcas"), IDB.get("fotos")]);
   if (ci && ci.h && ci.i && Object.keys(ci.i).length) { D.inv = { h: ci.h, i: ci.i }; D.v.inv = ci.v || ""; D.cached = true; }
-  if (cm && cm.docs) { D.marcas = cm.docs; D.v.marcas = cm.v || ""; }
+  if (cm && cm.docs) { realTimes(cm.docs); D.marcas = cm.docs; D.v.marcas = cm.v || ""; }
   if (cf && cf.docs) { D.fotos = cf.docs; D.v.fotos = cf.v || ""; }
   if (D.cached) { derive(); D.ready = true; emit("ready"); }
   try { await D.refresh(); }

@@ -64,8 +64,8 @@ function buildShell() {
   const side = $("#side");
   side.innerHTML = `<a class="sb-brand" href="#/inicio">${U.mark("mk")}<div><b>Inventario</b><small>CONALEP Chetumal<br>Servicios Administrativos</small></div></a>` +
     NAV.map(([sec, items]) => (sec ? `<div class="sb-sec">${esc(sec)}</div>` : "") + items.map(([k, ic, label]) => `<a class="nv" href="#/${k}" data-k="${k}">${icon(ic)}<span>${esc(label)}</span><i class="bd" data-b="${k}" hidden></i></a>`).join("")).join("") +
-    `<div class="sb-foot"><a class="nv" href="/app/" target="_blank" rel="noopener">${icon("phone")}<span>App de celular</span>${icon("ext", "")}</a><a class="nv" href="#/ajustes" data-k="ajustes">${icon("gear")}<span>Ajustes</span></a>
-     <div class="sb-user">${U.avatar(D.user)}<div><b>${esc(D.user)}</b><small>${D.admin ? "Administrador" : "Servicios Administrativos"}</small></div><button class="ib" type="button" id="outBtn" aria-label="Salir" data-tip="Salir">${icon("logout")}</button></div>
+    `<div class="sb-foot"><a class="nv" href="/app/" target="_blank" rel="noopener">${icon("phone")}<span>App de celular</span>${icon("ext", "")}</a><a class="nv" href="#/ayuda" data-k="ayuda" id="helpNav">${icon("help")}<span>Ayuda</span></a><a class="nv" href="#/ajustes" data-k="ajustes">${icon("gear")}<span>Ajustes</span></a>
+     <div class="sb-user">${U.avatar(D.user)}<div><b>${esc(D.user)}</b><small>${D.admin ? "Administrador" : "Equipo de revisión"}</small></div><button class="ib" type="button" id="outBtn" aria-label="Salir" data-tip="Salir">${icon("logout")}</button></div>
      <button class="credit" type="button" id="mitchell">Mitchell</button></div>`;
   $("#outBtn").onclick = async () => { if (await U.confirm("¿Salir del inventario?", "Se borra la copia guardada en este equipo. Para volver a entrar necesitas tu contraseña.", "Salir")) { await D.logout(); location.hash = ""; location.reload(); } };
   $("#mitchell").onclick = credits;
@@ -73,6 +73,7 @@ function buildShell() {
   $("#qbtn").innerHTML = `${icon("search")}<span>Busca o pregunta<span class="qx">, por ejemplo: <span class="typed" id="qtyped"></span></span></span><kbd>Ctrl K</kbd>`;
   $("#qbtn").onclick = () => S.openPal();
   $("#scanBtn").innerHTML = icon("qr"); $("#scanBtn").onclick = () => S.scan();
+  $("#helpBtn").innerHTML = icon("help"); $("#helpBtn").onclick = () => U.go(S.helpFor(U.parse().name));
   $("#themeBtn").onclick = (e) => toggleTheme(e);
   $("#sync").onclick = () => { if (!D.syncing) D.refresh().then(() => U.toast("Inventario actualizado.", { kind: "ok" })).catch(U.fail); };
   themeIcon(); typeHints();
@@ -155,10 +156,17 @@ const ACTIONS = () => [
   { label: "Importar un Excel", icon: "upload", run: () => U.go("#/importar") },
   { label: "Imprimir etiquetas QR", icon: "tag", run: () => U.go("#/etiquetas") },
   { label: "Ver la revisión en vivo", icon: "pulse", run: () => U.go("#/vivo") },
+  { label: "Modo pantalla (para proyectar)", icon: "tv", run: () => U.go("#/pantalla") },
   { label: "Descargar todo el inventario en Excel", icon: "sheet", run: () => S.exportAll() },
+  { label: "Descargar reporte de faltantes (PDF)", icon: "file", run: async () => { try { await S.gapReport("pdf"); } catch (e) { U.fail(e); } } },
+  { label: "Descargar reporte de faltantes (Excel)", icon: "sheet", run: async () => { try { await S.gapReport("xls"); } catch (e) { U.fail(e); } } },
+  { label: "Descargar informe de avance (PDF)", icon: "file", run: async () => { try { F.save(`informe_avance_${F.stamp()}.pdf`, await S.progressPdf()); U.toast("Informe de avance descargado.", { kind: "ok" }); } catch (e) { U.fail(e); } } },
   { label: "Descargar respaldo", icon: "download", run: () => U.go("#/importar") },
   { label: "Cambiar entre claro y oscuro", icon: "moon", run: () => toggleTheme() },
   { label: "Ajustes", icon: "gear", run: () => U.go("#/ajustes") },
+  { label: "Ayuda y guía de uso", icon: "help", run: () => U.go("#/ayuda") },
+  { label: "Recorrido de bienvenida", icon: "spark", run: () => S.tour(true) },
+  { label: "Imprimir la guía de uso", icon: "print", run: () => S.printGuide() },
   { label: "Atajos de teclado", icon: "key", run: () => shortcuts() },
   ...NAV.flatMap(([, items]) => items).map(([k, ic, label]) => ({ label: "Ir a " + label, icon: ic, run: () => U.go("#/" + k) })),
 ];
@@ -187,6 +195,8 @@ S.openPal = (initial = "") => {
       if (ppl.length) { sec("Resguardantes"); ppl.forEach((n) => add(`<span class="po-i">${U.avatar(n, "sm")}</span><span class="po-t"><b>${esc(U.nm(n))}</b><small>${B.plural(B.peopleMap().get(n).length, "artículo")}</small></span>`, () => { pushRecent(q); S.closePal(); U.go("#/resguardante/" + encodeURIComponent(n)); })); }
       const ars = B.areaNames().filter((n) => { const k = B.norm(n); return qn.every((w) => k.includes(w)); }).slice(0, 3);
       if (ars.length) { sec("Áreas"); ars.forEach((n) => add(`<span class="po-i">${icon("map")}</span><span class="po-t"><b>${esc(U.txt(n))}</b><small>${B.plural(B.areasMap().get(n).length, "artículo")}</small></span>`, () => { pushRecent(q); S.closePal(); U.go("#/lista?q=" + encodeURIComponent('area:"' + n + '"')); })); }
+      const hh = S.helpHits ? S.helpHits(q, 3) : [];
+      if (hh.length) { sec("Ayuda"); hh.forEach((t) => add(`<span class="po-i">${icon("help")}</span><span class="po-t"><b>${t.t}</b><small>${t.tag} · ${t.q}</small></span>`, () => { pushRecent(q); S.closePal(); U.go("#/ayuda/" + t.key); })); }
       const acts = ACTIONS().filter((a) => qn.every((w) => B.norm(a.label).includes(w))).slice(0, 4);
       if (acts.length) { sec("Acciones"); acts.forEach((a) => add(`<span class="po-i">${icon(a.icon)}</span><span class="po-t"><b>${esc(a.label)}</b></span>`, () => { S.closePal(); a.run(); })); }
       if (r.total > 7) add(`<span class="po-i">${icon("list")}</span><span class="po-t"><b>Ver los ${B.int(r.total)} artículos en la lista</b></span>`, () => { pushRecent(q); S.closePal(); U.go("#/lista?q=" + encodeURIComponent(q)); });
@@ -242,7 +252,7 @@ S.refreshItem = () => { if (dr && dr.open && !drEdit) drawDr(true); };
 function factsHtml(it) {
   const rows = D.inv.h.map((h2) => [h2, D.cell(it, h2)]).filter(([, v]) => v);
   const m = it.mark;
-  return `<dl class="facts"><dt>No.</dt><dd>${it.n}</dd>${rows.map(([k, v]) => `<dt>${esc(U.set.raw ? k : B.smart(k))}</dt><dd>${esc(v)}</dd>`).join("")}
+  return `<dl class="facts"><dt>No.</dt><dd>${it.n}</dd>${rows.map(([k, v]) => `<dt>${esc(U.set.raw ? k : B.smart(k))}</dt><dd>${esc(U.fv(k, v))}</dd>`).join("")}
     <dt>Revisión</dt><dd><span class="rv-a" style="margin-bottom:8px;display:flex;gap:6px;align-items:center"><button class="mk si ${m?.e === "si" ? "on" : ""}" type="button" data-mk="si" aria-label="Marcar presente" data-tip="${esc(`Marcar presente en la revisión de ${esc(U.nm(it.rc))}`)}">${icon("check")}</button><button class="mk no ${m?.e === "no" ? "on" : ""}" type="button" data-mk="no" aria-label="Marcar que no está" data-tip="Marcar que no está">${icon("x")}</button></span>${m ? `${U.stamp(m)}<br><small class="muted">${m.e === "si" ? "Presente" : "No está"}${m.c ? " · estado " + { B: "bueno", R: "regular", M: "malo" }[m.c] : ""} · ${esc(m.by || "")} · ${esc(B.ago(m.at))}</small>${m.n ? `<br>Observaciones: ${esc(m.n)}` : ""}` : `<span class="muted">Todavía no se revisa en el inventario de ${esc(U.nm(it.rc))}.</span>`}</dd>
     <dt>Fotos</dt><dd>${it.fotos ? B.plural(it.fotos, "foto") : '<span class="muted">Sin fotos</span>'}</dd></dl>${ctxHtml(it)}`;
 }
@@ -436,7 +446,7 @@ addEventListener("keydown", (e) => {
 
 /* ================= ATAJOS ================= */
 function shortcuts() {
-  U.modal({ title: "Atajos de teclado", body: `<div class="keys">${[["Ctrl K  o  /", "Buscar o preguntar"], ["g  i", "Inicio"], ["g  l", "Lista completa"], ["g  r", "Resguardantes"], ["g  a", "Áreas"], ["g  v", "En vivo"], ["g  n", "Análisis"], ["g  s", "Salud de los datos"], ["g  e", "Etiquetas QR"], ["g  m", "Importar Excel"], ["g  b", "Bitácora"], ["↑ ↓  Enter", "Moverse y abrir en las listas"], ["Espacio", "Seleccionar en la lista"], ["Esc", "Cerrar"], ["?", "Esta ayuda"]].map(([k, v]) => `<span>${k.split("  ").map((x) => U.kbd(x)).join(" ")}</span><span>${esc(v)}</span>`).join("")}</div><p class="muted">Con un lector de códigos USB puedes escanear un marbete en cualquier pantalla y se abre su ficha.</p>`, actions: [{ label: "Entendido", kind: "pri", value: "x" }] });
+  U.modal({ title: "Atajos de teclado", body: `<div class="keys">${[["Ctrl K  o  /", "Buscar o preguntar"], ["g  i", "Inicio"], ["g  l", "Lista completa"], ["g  r", "Resguardantes"], ["g  a", "Áreas"], ["g  v", "En vivo"], ["g  n", "Análisis"], ["g  s", "Salud de los datos"], ["g  e", "Etiquetas QR"], ["g  m", "Importar Excel"], ["g  b", "Bitácora"], ["g  h", "Centro de ayuda"], ["↑ ↓  Enter", "Moverse y abrir en las listas"], ["Espacio", "Seleccionar en la lista"], ["Esc", "Cerrar"], ["?", "Ver estos atajos"]].map(([k, v]) => `<span>${k.split("  ").map((x) => U.kbd(x)).join(" ")}</span><span>${esc(v)}</span>`).join("")}</div><p class="muted">Con un lector de códigos USB puedes escanear un marbete en cualquier pantalla y se abre su ficha.</p>`, actions: [{ label: "Entendido", kind: "pri", value: "x" }] });
 }
 S.shortcuts = shortcuts;
 let gKey = 0;
@@ -448,13 +458,13 @@ addEventListener("keydown", (e) => {
   if (e.key === "/") { e.preventDefault(); const v = U.current(); if (v && v.focusSearch) v.focusSearch(); else S.openPal(); return; }
   if (e.key === "?") { shortcuts(); return; }
   if (e.key === "g") { gKey = Date.now(); return; }
-  if (Date.now() - gKey < 900) { const m = { i: "inicio", l: "lista", r: "resguardantes", a: "areas", v: "vivo", n: "analisis", s: "salud", e: "etiquetas", m: "importar", b: "historial", j: "ajustes" }[e.key]; gKey = 0; if (m) { e.preventDefault(); U.go("#/" + m); } }
+  if (Date.now() - gKey < 900) { const m = { i: "inicio", l: "lista", r: "resguardantes", a: "areas", v: "vivo", n: "analisis", s: "salud", e: "etiquetas", m: "importar", b: "historial", j: "ajustes", h: "ayuda" }[e.key]; gKey = 0; if (m) { e.preventDefault(); U.go("#/" + m); } }
 });
 
 /* ================= ARRANQUE ================= */
 function hideBoot() { const b = $("#boot"); if (b && !b.classList.contains("out")) { b.classList.add("out"); setTimeout(() => b.remove(), 600); } }
 let rendered = false;
-function firstRender() { if (rendered) return; rendered = true; hideBoot(); S.badges(); S.syncPill(); U.render({ instant: true }); }
+function firstRender() { if (rendered) return; rendered = true; hideBoot(); S.badges(); S.syncPill(); U.render({ instant: true }); S.maybeTour && S.maybeTour(); }
 async function enterApp() {
   S.entered = true;
   buildShell(); $("#shell").hidden = false;
@@ -476,6 +486,15 @@ async function enterApp() {
     if (!rendered) { hideBoot(); $("#view").innerHTML = ""; $("#view").appendChild(h(`<div class="pnl" style="max-width:560px;margin:10vh auto">${U.empty("refresh", "No se pudo cargar el inventario", D.errMsg(e), `<button class="btn pri" type="button" onclick="location.reload()">Intentar de nuevo</button>`)}</div>`)); }
   }
   F.preload();
+}
+/* pistas de desplazamiento: difumina el borde donde todavía hay más por ver */
+{
+  let raf = 0;
+  const one = (el) => { const max = el.scrollWidth - el.clientWidth; el.classList.toggle("fade-r", max > 4 && el.scrollLeft < max - 4); el.classList.toggle("fade-l", max > 4 && el.scrollLeft > 4); };
+  const soon = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; document.querySelectorAll(".seg,.tabs").forEach(one); }); };
+  new MutationObserver(soon).observe(document.body, { childList: true, subtree: true });
+  document.addEventListener("scroll", (e) => { const t = e.target; if (t && t.matches && t.matches(".seg,.tabs")) one(t); }, true);
+  addEventListener("resize", soon);
 }
 S.start = async () => {
   initLogin();

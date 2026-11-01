@@ -3,12 +3,22 @@
    Mismo formato de almacenamiento y de cola que la versión 1: si había algo pendiente, se envía igual. */
 (() => {
 "use strict";
-const VERSION = "2.0";
+// acentos solo para mostrar (el Excel viene en MAYÚSCULAS sin acentos); ver acentos.js
+const accent = (t) => (typeof window.acentuar === "function" ? window.acentuar(t) : t);
+const VERSION = "9.0";
 const TK = "cnlp_token", UK = "cnlp_user";
 const SIN = "(Sin resguardante)";
 const clean = (v) => String(v ?? "").replace(/\s+/g, " ").trim();
 const nameKey = (n) => { let h = 5381; for (const ch of n) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0; return "r" + h.toString(36) + n.length; };
 const bucketOf = (t) => { let h = 0; for (const ch of t) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return "b" + String(h % 64).padStart(2, "0"); };
+/* hora «verdadera»: la del teléfono corregida con la del servidor (si el reloj del teléfono está mal, las marcas igual llevan la hora real) */
+const now = () => Date.now() + (S.skew || 0);
+function noteServerTime(sv) {
+  if (!isFinite(sv)) return;
+  const est = sv + 500 - Date.now();                      // la cabecera Date solo trae segundos enteros
+  if (S.skewSet && Math.abs(est - S.skew) <= 2500) return; // ruido normal: se conserva la medida anterior
+  S.skew = est; S.skewSet = true; kvSet("skew", est).catch(() => {});
+}
 const uid = () => Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
 const nm = (r) => r || SIN;
 const money = (v) => { const n = parseFloat(String(v || "").replace(/[^0-9.]/g, "")); return isFinite(n) ? n : 0; };
@@ -82,7 +92,7 @@ function listFor(name) {
 }
 function finOf(name) {
   const d = S.marks[nameKey(name)]; let fin = d && d.name === name ? d.fin || null : null;
-  for (const o of S.ops) if (o.type === "fin" && o.name === name) fin = { t: o.t, by: S.user, pending: true };
+  for (const o of S.ops) if (o.type === "fin" && o.name === name) fin = { t: o.t, by: S.user, pending: true, ...(o.sig ? { sig: o.sig } : {}) };
   return fin;
 }
 function groups() {
@@ -94,6 +104,24 @@ function groups() {
   const out = [...g.values()];
   for (const x of out) { x.rev = x.si + x.no; x.fin = finOf(x.name); }
   return out.sort((a, b) => a.name.localeCompare(b.name, "es"));
+}
+/* ---------- por salón: todos los bienes de un lugar, sin importar de quién sean ---------- */
+const areaKey = (tok) => cell(S.inv.i[tok], K.AR) || "Sin área";
+function areas() {
+  const g = new Map();
+  for (const tok in S.inv.i) {
+    const a = areaKey(tok); let x = g.get(a); if (!x) g.set(a, (x = { name: a, total: 0, si: 0, no: 0, ppl: new Set() }));
+    const o = nm(rawOwner(tok)); x.total++; x.ppl.add(o);
+    const m = getMark(o, tok); if (m?.e === "si") x.si++; else if (m?.e === "no") x.no++;
+  }
+  return [...g.values()].map((x) => ({ name: x.name, total: x.total, si: x.si, no: x.no, rev: x.si + x.no, people: x.ppl.size })).sort((a, b) => a.name.localeCompare(b.name, "es"));
+}
+function areaSummary(area) {
+  const own = []; for (const tok in S.inv.i) if (areaKey(tok) === area) own.push(tok);
+  own.sort((a, b) => num(a) - num(b));
+  const r = { name: area, own, si: [], no: [], pend: [], people: new Set() };
+  for (const tok of own) { const o = nm(rawOwner(tok)); r.people.add(o); const m = getMark(o, tok); (m?.e === "si" ? r.si : m?.e === "no" ? r.no : r.pend).push(tok); }
+  r.people = r.people.size; return r;
 }
 function totals() {
   const gs = groups(); const t = { total: 0, si: 0, no: 0, fin: 0, people: gs.length, started: 0 };
@@ -144,6 +172,7 @@ async function api(route, body, auth = true) {
   try {
     r = await fetch("/api/" + route, { method: "POST", headers: { "content-type": "application/json", ...(auth && S.tok ? { authorization: "Bearer " + S.tok } : {}) }, body: JSON.stringify(body || {}) });
   } catch (e) { throw { net: true, message: "Sin conexión" }; }
+  try { const dh = r.headers.get("date"); if (dh) noteServerTime(Date.parse(dh)); } catch (e) {}
   if (r.status === 401 && auth) throw { auth: true, message: "Sesión vencida" };
   if (route === "foto-get" && r.ok) return r;
   let j = {}; try { j = await r.json(); } catch (e) {}
@@ -156,9 +185,14 @@ async function saveOps() { rebuildPending(); try { await kvSet("ops", S.ops); } 
 async function saveMoves() { try { await kvSet("moves", S.moves); } catch (e) {} }
 let logT = 0;
 function saveLogSoon() { clearTimeout(logT); logT = setTimeout(() => kvSet("log", S.log).catch(() => {}), 300); }
-function logAdd(ev) { ev.t = Date.now(); S.log.push(ev); if (S.log.length > 800) S.log.splice(0, S.log.length - 800); saveLogSoon(); }
+function logAdd(ev) { ev.t = now(); S.log.push(ev); if (S.log.length > 800) S.log.splice(0, S.log.length - 800); saveLogSoon(); }
 function logPop() { S.log.pop(); saveLogSoon(); }
 
+// el servidor sella la hora de llegada (sat); la hora real en que se marcó viene en t. Si hubo horas sin internet, esa es la que vale.
+function realTimes(docs) {
+  const fix = (m) => { if (!m || typeof m.t !== "number" || typeof m.at !== "number" || m.sat !== undefined) return; if (m.t > 1.5e12 && m.t <= m.at + 60e3 && m.at - m.t < 45 * 864e5) { m.sat = m.at; m.at = m.t; } };
+  for (const d of Object.values(docs || {})) { if (!d) continue; for (const m of Object.values(d.marks || {})) fix(m); for (const x of Object.values(d.extras || {})) fix(x); fix(d.fin); }
+}
 async function pull() {
   if (!S.tok || !navigator.onLine) return false;
   const r = await db({ op: "list", collection: "inv" });
@@ -169,6 +203,7 @@ async function pull() {
   if (!meta || !Object.keys(i).length) throw { message: "El servidor no devolvió el inventario completo" };
   const mk = await db({ op: "list", collection: "marcas" });
   const marks = {}; for (const d of mk.docs || []) marks[d.id] = d.data;
+  realTimes(marks);
   let fotos = S.fotos; try { const f = await db({ op: "list", collection: "fotos" }); fotos = Object.fromEntries((f.docs || []).map((d) => [d.id, d.data])); } catch (e) { if (e.net || e.auth) throw e; }
   S.inv = { h: meta.h, i, at: Date.now() }; S.marks = marks; S.fotos = fotos; S.lastPull = Date.now();
   cols(); rebuildPending();
@@ -178,7 +213,7 @@ async function pull() {
 }
 
 async function addOp(op) {
-  op.id = uid(); op.t = Date.now();
+  op.id = uid(); op.t = now();
   // la última marca de un artículo sustituye a las anteriores que aún no se envían (el servidor se queda con la última igual)
   if (op.type === "mark") S.ops = S.ops.filter((o) => !(o.type === "mark" && o.name === op.name && o.tok === op.tok));
   if (op.type === "fin") S.ops = S.ops.filter((o) => !(o.type === "fin" && o.name === op.name));
@@ -216,7 +251,7 @@ async function syncMarks(ops) {
     g.ids.push(o.id);
     if (o.type === "mark") { if (o.e) { g.marks[o.tok] = markData(o); g.del = g.del.filter((x) => x !== o.tok); } else { delete g.marks[o.tok]; g.del.push(o.tok); } }
     else if (o.type === "extra") g.extras[o.tok] = { n: o.note, t: o.t };
-    else if (o.type === "fin") g.fin = { t: o.t };
+    else if (o.type === "fin") g.fin = { t: o.t, ...(o.sig ? { sig: o.sig } : {}) };
   }
   for (const [name, g] of Object.entries(by)) {
     const key = nameKey(name);
@@ -241,7 +276,7 @@ async function syncMarks(ops) {
       for (const t of g.del) delete c.marks[t];
       for (const [t, m] of Object.entries(g.marks)) { const p = c.marks[t]; const keep = p && p.e === m.e && p.at; c.marks[t] = { ...(p || {}), e: m.e, at: keep ? p.at : m.t, by: keep ? p.by : S.user, ...(m.c !== undefined ? { c: m.c, n: m.n } : {}) }; }
       for (const [t, m] of Object.entries(g.extras)) c.extras[t] = { n: m.n, at: m.t, by: S.user };
-      if (g.fin) c.fin = { t: g.fin.t, at: g.fin.t, by: S.user };
+      if (g.fin) c.fin = { t: g.fin.t, at: g.fin.t, by: S.user, ...(g.fin.sig ? { sig: g.fin.sig } : {}) };
       S.ops = S.ops.filter((o) => !g.ids.includes(o.id)); await saveOps();
     } catch (e) {
       if (e.net || e.auth) throw e;
@@ -296,6 +331,32 @@ function markTo(name, tok, e, patch = {}, quiet) {
   return addOp(op);
 }
 // tocar el mismo botón otra vez quita la marca
+// marca (o quita la marca de) muchos artículos de una sola vez: un solo guardado y un solo aviso a la pantalla
+async function markMany(name, toks, e) {
+  const t = now(); const prevs = [];
+  for (const tok of toks) {
+    const cur = getMark(name, tok); prevs.push([tok, cur ? { e: cur.e, c: cur.c || "", n: cur.n || "" } : null]);
+    const op = { type: "mark", name, tok, e: e || null, id: uid(), t };
+    if (e && (cur?.c || cur?.n)) { op.c = cur.c || ""; op.n = cur.n || ""; }
+    S.ops = S.ops.filter((o) => !(o.type === "mark" && o.name === name && o.tok === tok));
+    S.ops.push(op);
+  }
+  logAdd({ k: "bulk", name, n: toks.length, e: e || "un" });
+  await saveOps(); emit("data"); kick();
+  return prevs;
+}
+// deshace markMany: devuelve cada artículo a como estaba
+async function restoreMany(name, prevs) {
+  const t = now();
+  for (const [tok, p] of prevs) {
+    const op = { type: "mark", name, tok, e: p?.e || null, id: uid(), t };
+    if (p?.e && (p.c || p.n)) { op.c = p.c || ""; op.n = p.n || ""; }
+    S.ops = S.ops.filter((o) => !(o.type === "mark" && o.name === name && o.tok === tok));
+    S.ops.push(op);
+  }
+  logPop();
+  await saveOps(); emit("data"); kick();
+}
 function toggleMark(name, tok, e) { const cur = getMark(name, tok); return markTo(name, tok, cur?.e === e ? null : e); }
 function move(tok, to, ctx) {
   const from = rawOwner(tok);
@@ -304,14 +365,20 @@ function move(tok, to, ctx) {
   return addOp({ type: "move", tok, from, to, ctx: ctx || "" });
 }
 function recordMove(tok, from, to) {
-  const M = S.moves; (M.out[from] = M.out[from] || {})[tok] = { to, t: Date.now() };
+  const M = S.moves; (M.out[from] = M.out[from] || {})[tok] = { to, t: now() };
   if (M.out[to]) delete M.out[to][tok];
-  (M.inn[to] = M.inn[to] || {})[tok] = { from, t: Date.now() };
+  (M.inn[to] = M.inn[to] || {})[tok] = { from, t: now() };
   if (M.inn[from]) delete M.inn[from][tok];
   saveMoves();
 }
 function addExtra(name, code, note) { logAdd({ k: "ex", tok: "m" + code, name }); return addOp({ type: "extra", name, tok: "m" + code, note: note || "Marbete fuera de la lista" }); }
-function finish(name) { logAdd({ k: "fin", name }); return addOp({ type: "fin", name }); }
+function finish(name, sig) { logAdd({ k: "fin", name, sig: sig ? 1 : 0 }); return addOp({ type: "fin", name, ...(validSig(sig) ? { sig } : {}) }); }
+/* firma: {w,h,s:[[x,y,x,y,…],…]} con enteros en una cuadrícula w×h; se descartan formas raras o demasiado pesadas */
+function validSig(g) {
+  if (!g || typeof g !== "object" || !Array.isArray(g.s) || !g.s.length || g.s.length > 60 || !(g.w > 0) || !(g.h > 0)) return false;
+  let n = 0; for (const st of g.s) { if (!Array.isArray(st) || st.length < 2 || st.length % 2) return false; n += st.length; if (st.some((v) => !Number.isFinite(v))) return false; }
+  return n <= 4000;
+}
 function resNames() { const s = new Set(); for (const t in S.inv.i) { const n = cell(S.inv.i[t], K.RC); if (n) s.add(n); } return [...s].sort((a, b) => a.localeCompare(b, "es")); }
 
 /* ---------- fotos ---------- */
@@ -328,7 +395,7 @@ async function shrink(file) {
 async function addPhoto(tok, file) {
   const data = await shrink(file);
   const fid = (Math.random().toString(36).slice(2, 8) + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)).replace(/[^A-Za-z0-9]/g, "");
-  const t = Date.now();
+  const t = now();
   await fotoSet(fid, { fid, tok, data, t, sent: false });
   S.fidx.push({ fid, tok, t, sent: false }); saveFidx();
   logAdd({ k: "ft", tok, name: owner(tok) });
@@ -377,6 +444,17 @@ function findTok(t) {
   t = clean(t); if (!t || !S.inv) return "";
   if (S.inv.i["m" + t]) return "m" + t; if (/^m/i.test(t) && S.inv.i["m" + t.slice(1)]) return "m" + t.slice(1); if (S.inv.i[t]) return t; return "";
 }
+/* búsqueda por número de serie (para cuando el QR de la etiqueta está dañado: se escanea el código de barras del equipo o se teclea la serie) */
+const normSer = (x) => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+const SER_VACIA = /^(SM|SN|NA|SINSERIE|SINNUMERO|0+)$/;
+let sxs = null;
+function serialIndex() {
+  if (sxs && sxs.inv === S.inv) return sxs.m;
+  const m = new Map();
+  for (const t in S.inv.i) { const v = normSer(cell(S.inv.i[t], K.SE)); if (v.length < 4 || SER_VACIA.test(v)) continue; let a = m.get(v); if (!a) m.set(v, (a = [])); a.push(t); }
+  sxs = { inv: S.inv, m }; return m;
+}
+function findBySerial(code) { if (!S.inv) return []; const v = normSer(code); if (v.length < 4) return []; return (serialIndex().get(v) || []).slice(); }
 function parseCode(txt) {
   txt = String(txt || "").trim();
   let m = txt.match(/#m([A-Za-z0-9]{1,40})\s*$/); if (m) return m[1];
@@ -413,6 +491,7 @@ async function boot() {
   try { S.tok = localStorage.getItem(TK) || ""; S.user = localStorage.getItem(UK) || ""; } catch (e) {}
   S.inv = (await kvGet("inv")) || null; S.marks = (await kvGet("marks")) || {}; S.ops = (await kvGet("ops")) || [];
   S.moves = (await kvGet("moves")) || { out: {}, inn: {} }; S.lastSync = (await kvGet("lastSync")) || 0;
+  S.skew = (await kvGet("skew")) || 0; S.skewSet = false;
   S.log = (await kvGet("log")) || []; S.fotos = (await kvGet("fotosIdx")) || {};
   let fi = await kvGet("fidx");
   if (!Array.isArray(fi)) { fi = (await fotoAll()).map((f) => ({ fid: f.fid, tok: f.tok, t: f.t || 0, sent: !!f.sent })); kvSet("fidx", fi).catch(() => {}); }
@@ -427,8 +506,8 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) onFo
 setInterval(() => { if (!document.hidden && S.ops.length) kick(); }, 30000);
 
 window.Core = {
-  VERSION, SIN, S, K, on: (f) => subs.push(f), emit, clean, nm, nameKey, norm, money, cell, row, owner, rawOwner, getMark, listFor, groups, totals, summaryOf, finOf, search,
-  pull, sync, kick, addOp, markTo, toggleMark, move, addExtra, finish, resNames, addPhoto, localPhotos, photoCount, serverPhoto, freeSent,
-  discard, retry, forceMove, findTok, parseCode, login, logout, start, boot, logAdd, logPop, api,
+  areas, areaSummary, areaKey, validSig, accent, VERSION, SIN, S, K, on: (f) => subs.push(f), emit, clean, nm, nameKey, norm, money, cell, row, owner, rawOwner, getMark, listFor, groups, totals, summaryOf, finOf, search,
+  pull, sync, kick, addOp, markTo, markMany, restoreMany, toggleMark, move, addExtra, finish, resNames, addPhoto, localPhotos, photoCount, serverPhoto, freeSent,
+  discard, retry, forceMove, findTok, findBySerial, parseCode, login, logout, start, boot, logAdd, logPop, api, now,
 };
 })();

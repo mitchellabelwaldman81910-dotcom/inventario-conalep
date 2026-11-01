@@ -19,7 +19,7 @@ B.smart = (s) => {
     if (UNIT.has(w)) return w;
     if (ACR.has(w) || (/\d/.test(w) && /[a-z]/.test(w))) return w.toUpperCase();
     if (w.length <= 3 && !/[aeiouyáéíóú]/.test(w) && /^[a-z]+$/.test(w)) return w.toUpperCase();
-    return w;
+    return typeof window.acentuar === "function" && /^[a-zñ]+$/.test(w) ? window.acentuar(w) : w;
   });
   return out.replace(/^(\s*)([a-záéíóúüñ])/, (m, a, b) => a + b.toUpperCase()).replace(/([.:;]\s+)([a-záéíóúüñ])/g, (m, a, b) => a + b.toUpperCase());
 };
@@ -27,6 +27,8 @@ B.money = (n, dec = 2) => "$" + (Number(n) || 0).toLocaleString("es-MX", { minim
 B.moneyShort = (n) => { n = Number(n) || 0; const a = Math.abs(n); if (a >= 1e6) return "$" + (n / 1e6).toLocaleString("es-MX", { maximumFractionDigits: 2 }) + " M"; if (a >= 1e4) return "$" + Math.round(n / 1e3).toLocaleString("es-MX") + " mil"; return B.money(n, 0); };
 B.int = (n) => Math.round(Number(n) || 0).toLocaleString("es-MX");
 B.pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+/* avance: nunca muestra 100% si falta algo, ni 0% si ya hay algo hecho */
+B.prog = (a, b) => (!b ? 0 : a >= b ? 100 : a <= 0 ? 0 : Math.min(99, Math.max(1, Math.round((a / b) * 100))));
 B.plural = (n, one, many) => B.int(n) + " " + (n === 1 ? one : many || one + "s");
 const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 B.fdt = (t) => { if (!t) return ""; const d = new Date(t); return d.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" }) + " " + d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }); };
@@ -241,7 +243,7 @@ B.person = (name) => {
     if (m?.n) p.notes++; if (m?.at > p.lastAt) p.lastAt = m.at;
   }
   const doc = D.docOf(name); p.doc = doc; p.fin = doc?.fin || null; p.inicio = doc?.inicio || 0; p.extras = doc?.extras || {};
-  p.rev = p.si + p.no; p.pct = B.pct(p.rev, p.total);
+  p.rev = p.si + p.no; p.pct = B.prog(p.rev, p.total);
   p.status = p.fin ? "fin" : p.rev ? "curso" : "nada";
   return p;
 };
@@ -250,9 +252,56 @@ B.totals = () => {
   const t = { items: D.items.length, val: 0, si: 0, no: 0, pend: 0, reg: 0, mal: 0, fotos: 0, valNo: 0 };
   for (const it of D.items) { t.val += it.im; const m = it.mark; if (m?.e === "si") { t.si++; if (m.c === "R") t.reg++; else if (m.c === "M") t.mal++; } else if (m?.e === "no") { t.no++; t.valNo += it.im; } else t.pend++; if (it.fotos) t.fotos++; }
   const ppl = B.people(); t.people = ppl.filter((p) => p.name !== SIN).length; t.areas = index().areas.size; t.fin = ppl.filter((p) => p.fin).length; t.started = ppl.filter((p) => p.rev && !p.fin).length;
-  t.rev = t.si + t.no; t.pct = B.pct(t.rev, t.items);
+  t.rev = t.si + t.no; t.pct = B.prog(t.rev, t.items);
   return t;
 };
+/* diferencias de la revisión: faltantes, sobrantes y mal estado (con su valor) */
+B.gaps = () => {
+  const no = [], mal = [], extra = [];
+  for (const it of D.items) { const m = it.mark; if (!m) continue; if (m.e === "no") no.push(it); else if (m.e === "si" && m.c === "M") mal.push(it); }
+  for (const d of Object.values(D.marcas)) {
+    if (!d || !d.name) continue;
+    for (const [tok, x] of Object.entries(d.extras || {})) extra.push({ tok, mb: String(tok).replace(/^m/, ""), name: d.name, n: (x && x.n) || "", by: (x && x.by) || "", at: (x && x.at) || 0, known: D.byTok.get(tok) || null });
+  }
+  const mbc = (a, b) => String(a.mb).localeCompare(String(b.mb), "es", { numeric: true });
+  no.sort((a, b) => String(a.rc).localeCompare(String(b.rc), "es") || mbc(a, b)); mal.sort((a, b) => String(a.rc).localeCompare(String(b.rc), "es") || mbc(a, b));
+  extra.sort((a, b) => a.name.localeCompare(b.name, "es") || mbc(a, b));
+  return { no, mal, extra, valNo: B.sum(no), valMal: B.sum(mal) };
+};
+/* ritmo de la revisión: artículos por día hábil (lunes a viernes) en las últimas dos semanas y fecha estimada de término */
+const dayFrac = (t) => { const d = new Date(t); return Math.min(1, Math.max(0.15, (d.getHours() + d.getMinutes() / 60 - 8) / 8)); };
+const isWork = (d) => d.getDay() !== 0 && d.getDay() !== 6;
+B.workdays = (t0, t1) => {
+  const d = new Date(t0); d.setHours(0, 0, 0, 0); const end = new Date(t1); end.setHours(0, 0, 0, 0); let n = 0;
+  for (; d <= end; d.setDate(d.getDate() + 1)) if (isWork(d)) n += d.getTime() === end.getTime() ? dayFrac(t1) : 1;
+  return n;
+};
+B.pace = (now = Date.now()) => {
+  const t = B.totals(); const WIN = 14 * 864e5; const d0 = new Date(now); d0.setHours(0, 0, 0, 0);
+  const stamps = []; for (const it of D.items) { const m = it.mark; if (m && m.at && m.at <= now + 6e4 && now - m.at <= WIN) stamps.push(m.at); }
+  const r = { n: stamps.length, left: t.pend, today: stamps.filter((x) => x >= d0.getTime()).length, week: stamps.filter((x) => now - x <= 7 * 864e5).length, rate: 0, days: 0, eta: null, etaDays: 0, ok: false, done: t.items > 0 && t.pend === 0 };
+  if (r.done || !stamps.length) return r;
+  const first = Math.min(...stamps); r.days = Math.max(1, B.workdays(first, now)); r.rate = r.n / r.days;
+  r.ok = r.n >= 10 && r.rate > 0;
+  if (r.ok) {
+    let need = r.left / r.rate; const e = new Date(now);
+    if (isWork(e)) need -= 1 - dayFrac(now);
+    r.etaDays = Math.max(0, Math.ceil(need));
+    for (let i = 0; i < r.etaDays && i < 800; i++) { do e.setDate(e.getDate() + 1); while (!isWork(e)); }
+    r.eta = e.getTime();
+  }
+  return r;
+};
+B.paceText = () => {
+  const p = B.pace();
+  if (p.done) return "";
+  if (!p.n) return "";
+  if (!p.ok) return `Con ${B.plural(p.n, "artículo revisado", "artículos revisados")} en las últimas dos semanas todavía es pronto para estimar cuándo termina.`;
+  const rate = p.rate >= 10 ? B.int(p.rate) : (Math.round(p.rate * 10) / 10).toLocaleString("es-MX");
+  const when = p.etaDays > 250 ? "dentro de más de un año" : p.etaDays === 0 ? "hoy mismo" : `hacia el ${B.fdate(p.eta)}`;
+  return `Ritmo: ${rate} artículos por día hábil. A este paso, los ${B.int(p.left)} pendientes se terminarían ${when} (estimación).`;
+};
+
 /* lo último que se marcó en todas las revisiones (para la vista En vivo) */
 B.feed = (limit = 60) => {
   const out = [];
@@ -403,6 +452,7 @@ B.insights = () => {
   if (old.length) out.push({ id: "old", sev: 0, icon: "hourglass", title: `${B.plural(old.length, "artículo")} con 15 años o más`, detail: `Comprados antes de ${yr - 14}. Valor original ${B.moneyShort(B.sum(old))}.`, act: { label: "Ver cuáles", q: "mas de 14 anos" } });
   const h = B.health(); const se = h.fields.find((f) => f.k === "se");
   if (se && se.pct < 0.5) out.push({ id: "se", sev: 0, icon: "tag", title: `${B.pct(se.miss, D.items.length)}% de los artículos no tiene número de serie`, detail: "Útil para equipo de cómputo y electrónicos; en mobiliario es normal.", act: { label: "Ver equipo sin serie", q: "computadora sin serie" } });
+  const pc = B.pace(); if (pc.ok && !pc.done) out.push({ id: "pace", sev: 0, icon: "clock", title: pc.etaDays > 250 ? "A este ritmo la revisión tardaría más de un año" : pc.etaDays === 0 ? "A este ritmo la revisión termina hoy" : `A este ritmo la revisión termina hacia el ${B.fdate(pc.eta)}`, detail: `Van ${B.int(pc.rate >= 10 ? Math.round(pc.rate) : Math.round(pc.rate * 10) / 10)} artículos por día hábil y faltan ${B.int(pc.left)}. Es una estimación con las últimas dos semanas.`, act: { label: "Ver avance", go: "#/vivo" } });
   if (!t.rev) out.push({ id: "start", sev: 0, icon: "phone", title: "Ninguna revisión de inventario ha empezado", detail: "Con la app de celular se marca cada artículo escaneando su QR.", act: { label: "Abrir la app", href: "/app/" } });
   return out.sort((a, b) => b.sev - a.sev);
 };

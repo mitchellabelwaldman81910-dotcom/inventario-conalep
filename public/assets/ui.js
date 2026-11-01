@@ -23,6 +23,8 @@ function applySet() {
 }
 applySet();
 U.txt = (s) => (U.set.raw ? String(s ?? "") : B.smart(s));
+// valor de una columna del Excel para mostrar: nombres y textos legibles; códigos, series, marcas y modelos se dejan tal cual
+U.fv = (k, v) => (U.set.raw ? String(v ?? "") : /resguard/i.test(k) ? U.nm(v) : /descrip|proveedor|[aá]rea|nombre|ubicaci|observ/i.test(k) ? B.smart(v) : String(v ?? ""));
 U.nm = (s) => (U.set.raw ? String(s ?? "") : s === D.SIN ? "Sin resguardante" : B.title(s));
 U.isDark = () => { const t = document.documentElement.getAttribute("data-theme"); return t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches; };
 U.css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -35,6 +37,10 @@ const P = {
   person: "M18 20v-1.5a4 4 0 0 0-4-4h-4a4 4 0 0 0-4 4V20M12 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7",
   map: "M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5L9 4ZM9 4v13.5M15 6.5V20",
   pulse: "M3 12h4l2.5-6 4 12 2.5-6H21",
+  play: "M7 4.5v15l12.5-7.5L7 4.5Z",
+  pause: "M8.5 5v14M15.5 5v14",
+  tv: "M3 5h18v12H3zM8 21h8M12 17v4",
+  expand: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5",
   chart: "M4 20V10M10 20V4M16 20v-7M22 20H2",
   shield: "M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6L12 3ZM8.5 12l2.5 2.5 4.5-5",
   tag: "M3 12V4.5A1.5 1.5 0 0 1 4.5 3H12l9 9-9 9-9-9ZM7.5 7.5h.01",
@@ -101,6 +107,12 @@ U.stamp = (m, cls = "", short) => {
   return `<span class="stamp si ${m.c === "M" ? "c-m" : m.c === "R" ? "c-r" : ""} ${cls}">${short && c ? cap1(c) : "Presente" + (c ? " · " + c : "")}</span>`;
 };
 const cap1 = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+/* firma guardada por la app: trazos de enteros → SVG */
+U.sigSvg = (sig, cls = "sig") => {
+  if (!sig || !Array.isArray(sig.s) || !(sig.w > 0) || !(sig.h > 0)) return "";
+  const d = sig.s.filter((st) => Array.isArray(st) && st.length >= 2).map((st) => { let o = "M" + st[0] + " " + st[1]; for (let i = 2; i + 1 < st.length; i += 2) o += "L" + st[i] + " " + st[i + 1]; return st.length === 2 ? o + "l.1 0" : o; }).join("");
+  return `<svg class="${cls}" viewBox="0 0 ${sig.w} ${sig.h}" role="img" aria-label="Firma del resguardante"><path d="${d}" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+};
 U.ring = (pct, { size = 64, sw = 7, label, cls = "" } = {}) => {
   const r = (size - sw) / 2, c = 2 * Math.PI * r, p = Math.max(0, Math.min(100, pct || 0));
   return `<span class="ring ${cls} ${p ? "" : "zero"}" style="--s:${size}px"><svg viewBox="0 0 ${size} ${size}"><circle class="bg" cx="${size / 2}" cy="${size / 2}" r="${r}" stroke-width="${sw}"/><circle class="fg" cx="${size / 2}" cy="${size / 2}" r="${r}" stroke-width="${sw}" pathLength="100" stroke-dasharray="100" style="stroke-dashoffset:100" data-p="${p}"/></svg>${label !== undefined ? `<b>${label}</b>` : ""}</span>`;
@@ -207,7 +219,7 @@ U.vtable = ({ cols, rowH = 46, onOpen, select, sortKey, sortDir = 1, onSort, emp
   const tpl = (select ? "36px " : "") + cols.map((c) => c.w || "1fr").join(" ");
   el.style.setProperty("--cols", tpl); el.style.setProperty("--rh", rowH + "px");
   const drawHead = () => {
-    head.innerHTML = (select ? `<label class="vt-c vt-ck"><input type="checkbox" aria-label="Seleccionar todo"></label>` : "") + cols.map((c, j) => `<button type="button" class="vt-c ${c.right ? "r" : ""} ${c.cls || ""} ${c.sort ? "srt" : ""} ${sortKey === c.k ? (sortDir > 0 ? "asc" : "desc") : ""}" data-j="${j}" ${c.sort ? "" : "tabindex=-1"}>${esc(c.h)}${c.sort ? U.icon("down", "si") : ""}</button>`).join("");
+    head.innerHTML = (select ? `<label class="vt-c vt-ck"><input type="checkbox" aria-label="Seleccionar todo"></label>` : "") + cols.map((c, j) => `<button type="button" class="vt-c ${c.right ? "r" : ""} ${c.cls || ""} ${c.sort ? "srt" : ""} ${sortKey === c.k ? (sortDir > 0 ? "asc" : "desc") : ""}" data-j="${j}" ${c.h ? "" : `aria-label="${esc(c.k || "columna")}"`} ${c.sort ? "" : "tabindex=-1"}>${esc(c.h)}${c.sort ? U.icon("down", "si") : ""}</button>`).join("");
     if (select) { const ck = $("input", head); ck.checked = rows.length > 0 && rows.every((r) => sel.has(r.tok)); ck.indeterminate = !ck.checked && rows.some((r) => sel.has(r.tok)); ck.onchange = () => { if (ck.checked) rows.forEach((r) => sel.add(r.tok)); else rows.forEach((r) => sel.delete(r.tok)); paint(true); api.onSel && api.onSel(); }; }
   };
   head.addEventListener("click", (e) => { const b = e.target.closest(".srt"); if (!b) return; const c = cols[+b.dataset.j]; if (sortKey === c.k) sortDir = -sortDir; else { sortKey = c.k; sortDir = c.dir || 1; } FX.play("tap"); onSort && onSort(sortKey, sortDir); drawHead(); });
@@ -361,7 +373,7 @@ U.hbars = (data, { fmt = B.int, max, sub, onClick, cls = "" } = {}) => {
 };
 U.columns = (data, { fmt = B.int, onClick, label = (d) => d.label, every } = {}) => {
   const mx = Math.max(1, ...data.map((d) => d.value)), step = every || Math.ceil(data.length / 12);
-  const el = U.h(`<div class="colh ${onClick ? "" : "static"}" role="list">${data.map((d, i) => `<button type="button" class="cc" role="listitem" data-i="${i}" style="--d:${i * 14}ms" data-tip="${esc(`<b>${esc(label(d))}</b><br>${esc(fmt(d.value))}${d.sub ? "<br>" + esc(d.sub) : ""}`)}"><i style="height:${d.value ? Math.max(1.5, (d.value / mx) * 100) : 0}%"></i>${i % step === 0 ? `<span>${esc(label(d))}</span>` : ""}</button>`).join("")}</div>`);
+  const el = U.h(`<div class="colh ${onClick ? "" : "static"}" role="list">${data.map((d, i) => `<button type="button" class="cc" role="listitem" aria-label="${esc(label(d))}: ${esc(fmt(d.value))}" data-i="${i}" style="--d:${i * 14}ms" data-tip="${esc(`<b>${esc(label(d))}</b><br>${esc(fmt(d.value))}${d.sub ? "<br>" + esc(d.sub) : ""}`)}"><i style="height:${d.value ? Math.max(1.5, (d.value / mx) * 100) : 0}%"></i>${i % step === 0 ? `<span>${esc(label(d))}</span>` : ""}</button>`).join("")}</div>`);
   if (onClick) el.addEventListener("click", (e) => { const b = e.target.closest(".cc"); if (b) onClick(data[+b.dataset.i]); });
   return el;
 };
