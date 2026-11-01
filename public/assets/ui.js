@@ -137,6 +137,35 @@ U.toast = (msg, o = {}) => {
 };
 U.fail = (e) => U.toast(D.errMsg(e), { kind: "err" });
 
+/* ---------- capas y botón Atrás (v11) ----------
+   Cada ventana (ficha, diálogo, buscador) deja una entrada en el historial: Atrás la cierra en vez de cambiar de página.
+   La X cierra al instante y consume esa entrada en silencio; si algo quedó «muerto» en el historial, Atrás lo salta solo. */
+const LY = []; let lySeq = 0, eatN = 0, eatT = 0, afterEat = [];
+const flushAfter = () => { const q = afterEat; afterEat = []; q.forEach((f) => { try { f(); } catch (e) { console.error(e); } }); };
+U.layerPush = (id, close) => {
+  if (LY.some((l) => l.id === id)) { LY.find((l) => l.id === id).close = close; return; }
+  const seq = ++lySeq; LY.push({ id, seq, close });
+  U.afterHistory(() => { try { history.pushState({ ...(history.state || {}), ly: seq }, "", location.href); } catch (e) {} });
+};
+U.layerDrop = (id, eat = true) => {
+  const i = LY.findIndex((l) => l.id === id); if (i < 0) return false;
+  const [l] = LY.splice(i, 1);
+  if (eat && history.state && history.state.ly === l.seq) {
+    eatN++; clearTimeout(eatT); eatT = setTimeout(() => { eatN = 0; flushAfter(); }, 800);
+    const href = location.href; // si fue un enlace que lleva a otra página, no se regresa: la entrada queda muerta y Atrás la salta
+    setTimeout(() => { if (location.href !== href) { eatN = Math.max(0, eatN - 1); if (!eatN) flushAfter(); return; } try { history.back(); } catch (e) { eatN = 0; flushAfter(); } }, 0);
+  }
+  return true;
+};
+U.layerCloseAll = () => { while (LY.length) { const l = LY.pop(); try { l.close(); } catch (e) {} } };
+U.afterHistory = (fn) => { if (eatN > 0) afterEat.push(fn); else fn(); };
+addEventListener("popstate", () => {
+  if (eatN > 0) { eatN--; if (!eatN) { clearTimeout(eatT); flushAfter(); } return; }
+  const cur = (history.state && history.state.ly) || 0;
+  for (let k = LY.length - 1; k >= 0; k--) if (LY[k].seq > cur) { const [l] = LY.splice(k, 1); try { l.close(); } catch (e) {} }
+  if (cur && !LY.some((l) => l.seq === cur)) { try { history.back(); } catch (e) {} } // entrada de una ventana ya cerrada: se salta
+});
+
 /* ---------- ventanas ---------- */
 U.modal = ({ title, body, actions = [], wide, cls = "", onOpen }) => new Promise((res) => {
   const d = U.h(`<dialog class="modal ${wide ? "wide" : ""} ${cls}"><div class="m-in"><header class="m-h"><h2>${esc(title)}</h2><button class="ib" type="button" data-x aria-label="Cerrar">${U.icon("x")}</button></header><div class="m-b"></div>${actions.length ? `<footer class="m-f"></footer>` : ""}</div></dialog>`);
@@ -147,9 +176,10 @@ U.modal = ({ title, body, actions = [], wide, cls = "", onOpen }) => new Promise
   actions.forEach((a) => { const x = U.h(`<button class="btn ${a.kind || ""}" type="button" value="${esc(a.value || "")}">${a.icon ? U.icon(a.icon) : ""}<span>${esc(a.label)}</span></button>`); x.onclick = async (e) => { e.preventDefault(); if (a.fn) { x.disabled = true; let r; try { r = await a.fn(d, x); } finally { x.disabled = false; } if (r !== false) { d._v = r ?? a.value; d.close(); } } else { d._v = a.value; d.close(); } }; f.appendChild(x); if (a.kind === "pri") primary = x; });
   d.addEventListener("keydown", (e) => { if (e.key === "Enter" && primary && e.target.tagName === "INPUT" && !e.target.closest("[data-own-enter]")) { e.preventDefault(); primary.click(); } });
   document.body.appendChild(d);
-  d.addEventListener("close", () => { res(d._v); setTimeout(() => d.remove(), 300); });
+  const lid = "m" + Math.random().toString(36).slice(2);
+  d.addEventListener("close", () => { U.layerDrop(lid); res(d._v); setTimeout(() => d.remove(), 300); });
   d.addEventListener("click", (e) => { if (e.target === d) d.close(); });
-  d.showModal(); FX.play("whoosh"); onOpen && onOpen(d);
+  d.showModal(); U.layerPush(lid, () => { if (d.open) d.close(); }); FX.play("whoosh"); onOpen && onOpen(d);
 });
 U.confirm = (title, text, ok = "Confirmar", danger) => U.modal({ title, body: `<p class="lead">${esc(text)}</p>`, actions: [{ label: "Cancelar", kind: "ghost", value: "" }, { label: ok, kind: danger ? "danger" : "pri", value: "ok" }] }).then((v) => v === "ok");
 
@@ -207,7 +237,7 @@ U.render = (opts = {}) => {
   };
   if (document.startViewTransition && FX.motion && !same && !opts.instant) document.startViewTransition(swap); else swap();
 };
-U.go = (hash) => { if (location.hash === hash) U.render({ force: true }); else location.hash = hash; };
+U.go = (hash) => U.afterHistory(() => { if (location.hash === hash) U.render({ force: true }); else location.hash = hash; });
 U.navMark = (name) => { const map = { resguardante: "resguardantes", articulo: "lista" }; const k = map[name] || name; $$(".nv").forEach((a) => a.classList.toggle("on", a.dataset.k === k)); };
 const closeSide = () => document.body.classList.remove("side-open");
 

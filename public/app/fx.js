@@ -23,9 +23,70 @@ function thunk(a) {
   s.connect(f); f.connect(v); v.connect(a.destination); s.start();
   tone(a, 150, 0, 0.13, "sine", 0.16, 60);
 }
-FX.unlock = () => { ctx(); };
+FX.unlock = () => {
+  // iPhone: que suene aunque el interruptor de silencio esté activado (Safari 17+)
+  try { if (navigator.audioSession && navigator.audioSession.type !== "playback") navigator.audioSession.type = "playback"; } catch (e) {}
+  ctx();
+};
+
+/* ---------- v10: tonos del escáner, a todo volumen ----------
+   Pasan por un compresor para sonar lo más fuerte posible sin distorsionar,
+   en las frecuencias (1–3 kHz) que mejor reproduce la bocina del teléfono. */
+FX.scanTones = true;
+FX.quietUntil = 0;
+let bus = null;
+function loud(a) {
+  if (bus && bus.ctx === a) return bus.in;
+  const inp = a.createGain(), comp = a.createDynamicsCompressor(), out = a.createGain();
+  inp.gain.value = 1.4;
+  comp.threshold.value = -20; comp.knee.value = 4; comp.ratio.value = 14; comp.attack.value = 0.002; comp.release.value = 0.15;
+  out.gain.value = 1.0;
+  // limitador suave final: sube todo lo posible y nunca pasa de 0.99 (sin chasquidos)
+  const sh = a.createWaveShaper(), N = 2048, cv = new Float32Array(N);
+  for (let i = 0; i < N; i++) { const x = (i / (N - 1)) * 2 - 1; cv[i] = 0.97 * Math.tanh(1.6 * x) / Math.tanh(1.6); }
+  sh.curve = cv; sh.oversample = "none";
+  inp.connect(comp); comp.connect(out); out.connect(sh); sh.connect(a.destination);
+  bus = { ctx: a, in: inp, out }; return inp;
+}
+function v(a, f, t0, dur, type, g, f2, att = 0.006) {
+  const o = a.createOscillator(), gn = a.createGain(), t = a.currentTime + t0;
+  o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur * 0.8);
+  gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(g, t + att); gn.gain.setValueAtTime(g, t + Math.min(dur * 0.35, 0.06)); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(gn); gn.connect(loud(a)); o.start(t); o.stop(t + dur + 0.03);
+}
+// v11: tonos sobrios, como los de un lector de códigos profesional o una terminal de cobro
+// encuadre: un solo pitido corto y limpio (2.7 kHz), el «beep» de lectura correcta
+// alerta: dos tonos graves y secos, el aviso de error de los lectores industriales
+// presente: dos tonos ascendentes breves, la confirmación de «aceptado»
+// solo para pruebas: dibuja el tono en un contexto sin bocina y mide pico y duración audible
+FX._render = async (kind) => {
+  const keep = ac, keepBus = bus, keepOn = FX.scanTones, keepVib = FX.vib;
+  const off = new OfflineAudioContext(1, 48000 * 1.2, 48000); ac = off; bus = null; FX.scanTones = true; FX.vib = false;
+  try { FX.scan(kind); } finally { ac = keep; bus = keepBus; FX.scanTones = keepOn; FX.vib = keepVib; }
+  const d = (await off.startRendering()).getChannelData(0); let peak = 0, last = 0;
+  for (let i = 0; i < d.length; i++) { const x = Math.abs(d[i]); if (x > peak) peak = x; if (x > 0.05) last = i; }
+  return { peak, dur: last / 48000 };
+};
+FX.scan = (kind) => {
+  if (!FX.scanTones) return; const a = ctx(); if (!a) return;
+  try {
+    loud(a); bus.out.gain.setValueAtTime({ frame: 1.3, misframe: 1.6, present: 1.35 }[kind] || 1, a.currentTime);
+    if (kind === "frame") {
+      v(a, 2730, 0, 0.15, "sine", 0.9, 0, 0.003); v(a, 5460, 0, 0.08, "sine", 0.12, 0, 0.003);
+      FX.buzz(30);
+    } else if (kind === "misframe") {
+      v(a, 415, 0, 0.13, "triangle", 0.9, 0, 0.004); v(a, 830, 0, 0.13, "sine", 0.35, 0, 0.004);
+      v(a, 415, 0.19, 0.13, "triangle", 0.9, 0, 0.004); v(a, 830, 0.19, 0.13, "sine", 0.35, 0, 0.004);
+      FX.buzz([90, 70, 90]);
+    } else if (kind === "present") {
+      v(a, 1568, 0, 0.1, "sine", 0.85, 0, 0.004); v(a, 3136, 0, 0.06, "sine", 0.1, 0, 0.004);
+      v(a, 2093, 0.11, 0.2, "sine", 0.9, 0, 0.004); v(a, 4186, 0.11, 0.1, "sine", 0.1, 0, 0.004);
+      FX.buzz([35, 45, 60]);
+    }
+  } catch (e) {}
+};
 FX.play = (kind) => {
-  if (!FX.sound) return; const a = ctx(); if (!a) return;
+  if (!FX.sound) return; if ((kind === "ok" || kind === "stamp") && performance.now() < FX.quietUntil) return; const a = ctx(); if (!a) return;
   try {
     if (kind === "ok") { tone(a, 1046, 0, 0.09, "sine", 0.08); tone(a, 1568, 0.07, 0.14, "sine", 0.07); }
     else if (kind === "stamp") thunk(a);

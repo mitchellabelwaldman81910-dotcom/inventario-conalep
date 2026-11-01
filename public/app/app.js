@@ -3,6 +3,22 @@
 "use strict";
 const C = window.Core, FX = window.FX, S = C.S, K = C.K;
 const $ = (id) => document.getElementById(id);
+/* v10: tono fuerte de «¡correcto!» solo cuando un artículo pasa a presente */
+let lastFrame = 0;
+{
+  const raw = C.markTo; let lastP = 0;
+  C.markTo = function (name, tok, e, patch, quiet) {
+    const was = e === "si" && !quiet ? C.getMark(name, tok)?.e : "si";
+    const r = raw.apply(this, arguments);
+    if (e === "si" && !quiet && was !== "si" && Date.now() - lastP > 250) {
+      lastP = Date.now();
+      const wait = Math.max(0, lastFrame + 300 - Date.now());
+      FX.quietUntil = performance.now() + wait + 500;
+      setTimeout(() => FX.scan("present"), wait);
+    }
+    return r;
+  };
+}
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const cell = C.cell;
 const fmtN = (n) => Number(n || 0).toLocaleString("es-MX");
@@ -11,10 +27,10 @@ const rj = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } 
 const wj = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 
 /* ---------- ajustes ---------- */
-const SET = Object.assign({ theme: "auto", sound: true, vib: true, auto: true, less: false, sort: "az", group: false, text: 0, tips: true, sign: true, voice: false }, rj("cnlp_set", {}));
+const SET = Object.assign({ theme: "auto", sound: true, vib: true, auto: true, less: false, sort: "az", group: false, text: 0, tips: true, sign: true, voice: false, scanTones: true }, rj("cnlp_set", {}));
 const mqReduce = matchMedia("(prefers-reduced-motion: reduce)"), mqDark = matchMedia("(prefers-color-scheme: dark)");
 function applySet() {
-  FX.sound = SET.sound; FX.vib = SET.vib; FX.motion = !SET.less && !mqReduce.matches;
+  FX.sound = SET.sound; FX.vib = SET.vib; FX.scanTones = SET.scanTones !== false; FX.motion = !SET.less && !mqReduce.matches;
   const de = document.documentElement; de.classList.toggle("lessmo", !!SET.less); de.style.fontSize = ["100%", "112%", "125%"][SET.text || 0] || "100%"; de.dataset.text = String(SET.text || 0);
   if (SET.theme === "auto") de.removeAttribute("data-theme"); else de.setAttribute("data-theme", SET.theme);
   metaTheme();
@@ -86,6 +102,7 @@ const P = {
   bulb: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3z"/>',
   send: '<path d="M21 3 10.5 13.5M21 3l-6.5 18-4-7.5L3 9.5z"/>',
   text: '<path d="M3.5 19 9 5l5.5 14M5.7 14h6.6M16.5 19l2.5-6 2.5 6M17.4 17.2h3.2"/>',
+  pause: '<path d="M9 5v14M15 5v14"/>',
   skip: '<path d="M5 5.5v13l9-6.5zM18 5.5v13"/>',
   dots: '<path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3.2"/>',
   phone: '<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
@@ -97,7 +114,12 @@ const MARK = (cls = "") => `<svg class="${cls}" viewBox="0 0 398 238" aria-hidde
 /* ---------- formato ---------- */
 const LOWW = new Set(["de", "del", "la", "las", "los", "y", "e", "da", "van", "von", "el"]);
 // nombre corto para la cabecera: primer nombre y primer apellido (el nombre completo se ve en la tarjeta de abajo)
-const hname = (n) => { const w = tcase(n).split(" ").filter(Boolean); return w.length >= 4 ? w[0] + " " + w[w.length - 2] : tcase(n); };
+const hname = (n) => {
+  const base = tcase(String(n || "").split(":")[0].trim()), w = base.split(" ").filter(Boolean), keep = w.filter((x) => !LOWW.has(x.toLowerCase()));
+  if (keep.length >= 4) return keep[0] + " " + keep[keep.length - 2];
+  if (keep.length === 3 && w.length > 3) return keep[0] + " " + keep[1];
+  return base;
+};
 const tcase = (s) => (!s || s === C.SIN ? s || "" : s.toLowerCase().split(" ").map((w, i) => (i > 0 && LOWW.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(" "));
 const ACR = new Set(["CPU", "LCD", "LED", "HP", "USB", "PC", "TV", "DVD", "UPS", "CD", "VGA", "HDMI", "PVC", "MDF", "AC", "A/C", "IBM", "LG", "IP", "GB", "TB", "MB", "RAM", "SSD", "HD", "DC", "CCTV", "DVR", "NVR", "RCA", "ABS", "AM", "FM", "UV", "LAN", "PBX", "MIG", "TIG", "CNC", "PLC", "OBD", "SRS", "ABC", "CO2"]);
 function scase(s) {
@@ -140,21 +162,29 @@ const descOf = (tok) => scase(cell(C.row(tok), K.DS));
 const metaOf = (tok) => { const r = C.row(tok); return [cell(r, K.MA), cell(r, K.MO), cell(r, K.SE) ? "Serie " + cell(r, K.SE) : ""].filter((x) => !isNA(x) && x !== "Serie S/N").join(" · "); };
 const areaOf = (tok) => cell(C.row(tok), K.AR);
 
-/* ---------- capas (botón atrás de Android) ---------- */
-const L = [];
-function pushLayer(id, close) { L.push({ id, close }); try { history.pushState({ l: L.length }, ""); } catch (e) {} }
+/* ---------- capas (botón atrás de Android) ----------
+   v11: la X cierra AL INSTANTE (no espera al navegador) y luego se consume en silencio la entrada del historial.
+   Así nunca se queda trabada aunque el teléfono tarde en avisar, se toque dos veces o el historial esté desfasado. */
+const L = []; let eat = [];
+function pushLayer(id, close) {
+  const had = L.find((x) => x.id === id && id !== "view"); if (had) { had.close = close; return; } // doble toque: no se apila dos veces
+  L.push({ id, close }); try { history.pushState({ l: L.length }, ""); } catch (e) {}
+}
+// la capa se cerró por su cuenta (no con la X ni Atrás): se quita de la lista para que Atrás no se gaste en nada
+function dropLayer(id) { for (let k = L.length - 1; k >= 0; k--) if (L[k].id === id) { L.splice(k, 1); eatHistory(); return; } }
+function runClose(l) { try { l.close(); } catch (e) { console.error(e); } }
+function eatHistory() { eat.push(Date.now()); try { history.back(); } catch (e) { eat.pop(); } }
 function closeLayer(id) {
-  const top = L[L.length - 1];
-  if (top && top.id === id) { history.back(); return; }
-  const i = L.findIndex((x) => x.id === id); if (i >= 0) { const [l] = L.splice(i, 1); l.close(); }
+  let i = -1; for (let k = L.length - 1; k >= 0; k--) if (L[k].id === id) { i = k; break; }
+  if (i < 0) return false;
+  const [l] = L.splice(i, 1); eatHistory(); runClose(l); return true;
 }
-function closeThen(id, fn) {
-  const top = L[L.length - 1];
-  if (!top || top.id !== id) { closeLayer(id); fn(); return; }
-  let done = false; const h = () => { if (done) return; done = true; window.removeEventListener("popstate", h); setTimeout(fn, 20); };
-  window.addEventListener("popstate", h); history.back(); setTimeout(h, 1500);
-}
-window.addEventListener("popstate", () => { const l = L.pop(); if (l) l.close(); });
+function closeThen(id, fn) { closeLayer(id); setTimeout(fn, 30); }
+window.addEventListener("popstate", () => {
+  const now = Date.now(); eat = eat.filter((t) => now - t < 3000);
+  if (eat.length) { eat.shift(); return; } // era la entrada de una X que ya cerró su capa
+  const l = L.pop(); if (l) runClose(l);
+});
 
 /* ---------- avisos ---------- */
 // lo que debe verse encima de la hoja inferior (que está en la capa superior del navegador) usa "popover"
@@ -189,6 +219,7 @@ const sheet = {
   redraw() { if (!$("sheet").open || !this.build) return; const box = $("shin"), y = box.scrollTop; box.replaceChildren(); this.build(box); box.scrollTop = y; },
   close() { closeLayer("sheet"); },
   _close() {
+    dropLayer("sheet");
     const d = $("sheet"); if (!d.open) return;
     const f = this.onclose; this.onclose = null; try { f && f(); } catch (e) {}
     d.classList.add("closing");
@@ -468,11 +499,11 @@ VIEWS.per = {
     const cta = $("pCta"), csig = sm.pend.length + "|" + tot + "|" + (sm.fin ? 1 : 0);
     if (cta.dataset.sig !== csig) {
       cta.dataset.sig = csig;
-      cta.innerHTML = !tot ? "" : sm.pend.length ? `<button type="button" class="gcta" data-act="guided"><span class="gi">${ic("list")}</span><span class="t"><b>Revisar uno por uno</b><small>${sm.pend.length === 1 ? "Queda 1 bien" : "Quedan " + fmtN(sm.pend.length) + " bienes"} · uno a la vez, con botones grandes</small></span>${ic("arrow")}</button>`
+      cta.innerHTML = !tot ? "" : sm.pend.length ? `<button type="button" class="gcta" data-act="guided"><span class="gi">${ic("list")}</span><span class="t"><b>Revisar uno por uno</b><small>${sm.pend.length === 1 ? "Queda 1 bien" : "Quedan " + fmtN(sm.pend.length) + " bienes"} · uno a la vez, con botones grandes</small></span>${ic("arrow")}</button>` + `<button type="button" class="gcta voz" data-act="vavoice"><span class="gi">${ic("mic")}</span><span class="t"><b>Revisión por voz</b><small>Te pregunto «¿se encuentra?» y marco según lo que respondas</small></span>${ic("arrow")}</button>`
         : `<button type="button" class="gcta ok" data-act="sum"><span class="gi">${ic("flag")}</span><span class="t"><b>${sm.fin ? "Inventario finalizado" : "Todo revisado"}</b><small>${sm.fin ? "Ver el resumen y compartirlo" : "Ve el resumen y finaliza"}</small></span>${ic("arrow")}</button>`;
     }
     // celebración
-    if (this.lastPend != null && this.lastPend > 0 && sm.pend.length === 0 && tot > 0 && $("scan").hidden && !U.cel.has(name)) { U.cel.add(name); celebrate(name, sm); }
+    if (this.lastPend != null && this.lastPend > 0 && sm.pend.length === 0 && tot > 0 && $("scan").hidden && !VA.on && !U.cel.has(name)) { U.cel.add(name); celebrate(name, sm); }
     this.lastPend = sm.pend.length;
   },
 };
@@ -747,7 +778,7 @@ VIEWS.rooms = {
 VIEWS.room = {
   root: false,
   head() { const sm = C.areaSummary(U.cur); return { t: scase(U.cur), s: sm.own.length + " bienes · " + (sm.people === 1 ? "1 persona" : sm.people + " personas"), back: true }; },
-  ctx: () => [{ act: "key", icon: "kbd", label: "Teclear" }, { act: "scanroom", icon: "scan", label: "Escanear", main: true }],
+  ctx: () => [{ act: "key", icon: "kbd", label: "Teclear" }, { act: "scanroom", icon: "scan", label: "Escanear", main: true }, { act: "vavoice", icon: "mic", label: "Por voz" }],
   mount(pg) {
     pg.innerHTML = `<div class="phero"><span class="av lg rm">${ic("pin")}</span><div class="t"><h1 class="${U.cur.length > 30 ? "xl" : U.cur.length > 22 ? "l" : ""}">${esc(scase(U.cur))}</h1><p id="mSub"></p></div><span id="mRing"></span></div>
       <div class="st4" id="mStats"></div>
@@ -884,6 +915,8 @@ VIEWS.more = {
       <div class="set-h">Al revisar</div>
       <div class="set-g"><button type="button" class="set-r" data-act="sw" data-k="auto">${ic("bolt")}<span class="t">Marcar presente al escanear<small>Si lo apagas, la app pregunta cada vez</small></span>${sw("auto", SET.auto)}</button>
         <button type="button" class="set-r" data-act="sw" data-k="sound">${ic("sound")}<span class="t">Sonidos</span>${sw("sound", SET.sound)}</button>
+        <button type="button" class="set-r" data-act="sw" data-k="scanTones">${ic("scan")}<span class="t">Tonos del escáner<small>A todo volumen: QR bien puesto, QR fuera del recuadro y artículo presente</small></span>${sw("scanTones", SET.scanTones !== false)}</button>
+        <button type="button" class="set-r" data-act="tonetest">${ic("sound")}<span class="t">Probar los tres tonos<small>Bien puesto · fuera del recuadro · presente</small></span>${ic("chev")}</button>
         <button type="button" class="set-r" data-act="sw" data-k="vib">${ic("vib")}<span class="t">Vibración<small>En Android</small></span>${sw("vib", SET.vib)}</button>
         <button type="button" class="set-r" data-act="sw" data-k="sign">${ic("pen")}<span class="t">Pedir firma al finalizar<small>La persona firma con el dedo y sale en el acta del portal</small></span>${sw("sign", SET.sign !== false)}</button>
         <button type="button" class="set-r" data-act="sw" data-k="tips">${ic("bulb")}<span class="t">Consejos en pantalla<small>Avisos cortos que explican cada pantalla la primera vez</small></span>${sw("tips", SET.tips !== false)}</button>
@@ -1104,6 +1137,7 @@ function unknownSheet(code, ctx) {
 /* =================== ESCÁNER =================== */
 const SC = { mode: "inv", name: "", stream: null, det: null, timer: 0, last: { k: "", at: 0 }, hist: [], n: 0, torch: false, zoom: 1, wake: null, run: false, paused: false, cv: null, cx: null, r: null };
 async function openScan(mode) {
+  if (!$("scan").hidden) return;
   FX.unlock();
   SC.mode = mode; SC.name = mode === "inv" || mode === "room" ? U.cur : ""; SC.last = { k: "", at: 0 }; SC.hist = []; SC.n = 0; SC.paused = false; SC.r = null;
   const sc = $("scan"); sc.hidden = false; sc.classList.remove("lock", "w", "e", "flash"); metaTheme("#000000");
@@ -1126,6 +1160,7 @@ async function openScan(mode) {
   SC.run = true; tick();
 }
 function closeScan() {
+  dropLayer("scan");
   SC.run = false; clearTimeout(SC.timer);
   if (SC.stream) { SC.stream.getTracks().forEach((t) => t.stop()); SC.stream = null; }
   try { SC.wake && SC.wake.release(); } catch (e) {} SC.wake = null;
@@ -1145,33 +1180,60 @@ document.addEventListener("visibilitychange", async () => {
   if (document.hidden) { SC.run = false; clearTimeout(SC.timer); }
   else { if (SC.stream && !SC.run) { SC.run = true; tick(); } try { SC.wake = await navigator.wakeLock?.request("screen"); } catch (e) {} }
 });
+/* v10: ¿el QR quedó dentro del recuadro? Se traduce de píxeles del video a la pantalla (el video llena la pantalla recortado) */
+function vidMap() {
+  const vid = $("vid"), vw = vid.videoWidth, vh = vid.videoHeight, r = vid.getBoundingClientRect(); if (!vw || !r.width) return null;
+  const s = Math.max(r.width / vw, r.height / vh); return { s, ox: r.left + (r.width - vw * s) / 2, oy: r.top + (r.height - vh * s) / 2, vw, vh };
+}
+// bien puesto = el centro del QR cae dentro del recuadro (con un poco de holgura)
+function framePos(pts) {
+  const m = vidMap(), fr = document.querySelector(".sc-frame")?.getBoundingClientRect(); if (!m || !fr || !pts || !pts.length) return null;
+  const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length, cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+  const x = m.ox + cx * m.s, y = m.oy + cy * m.s, tol = fr.width * 0.06;
+  return x >= fr.left - tol && x <= fr.right + tol && y >= fr.top - tol && y <= fr.bottom + tol ? "in" : "out";
+}
 function frameText() {
   const vid = $("vid"); const vw = vid.videoWidth, vh = vid.videoHeight; if (!vw) return null;
   const k = Math.min(1, 960 / vw), w = Math.round(vw * k), h = Math.round(vh * k);
   if (!SC.cv) { SC.cv = document.createElement("canvas"); SC.cx = SC.cv.getContext("2d", { willReadFrequently: true }); }
   SC.cv.width = w; SC.cv.height = h; SC.cx.drawImage(vid, 0, 0, w, h);
   const id = SC.cx.getImageData(0, 0, w, h);
-  return window.QRDec.decode({ data: id.data, width: w, height: h });
+  const txt = window.QRDec.decode({ data: id.data, width: w, height: h });
+  const l = txt && window.QRDec.loc ? window.QRDec.loc() : null;
+  SC.loc = l ? [{ x: l.x / k, y: l.y / k }] : null;
+  return txt;
+}
+// QR legible pero fuera del recuadro: alerta fuerte (sin repetirse a cada instante) y no se registra
+let lastMis = 0;
+function misframed(txt) {
+  const code = C.parseCode(txt); if (!code) return;
+  const key = C.findTok(code) || "x" + code;
+  if (SC.last.k === key && Date.now() - SC.last.at < 3000) return; // recién leído: moverlo después no molesta
+  if (Date.now() - lastMis < 1300) return; lastMis = Date.now();
+  FX.scan("misframe");
+  const sc = $("scan"); sc.classList.remove("mis"); void sc.offsetWidth; sc.classList.add("mis");
+  const t = $("stip"); if (t) { t.hidden = false; clearTimeout(t._h); t._h = setTimeout(() => { t.hidden = true; sc.classList.remove("mis"); }, 1500); }
 }
 async function tick() {
   if (!SC.run) return;
   try {
     const vid = $("vid");
     if (!SC.paused && vid.readyState >= 2) {
-      let txt = null, fmt = "qr_code";
-      if (SC.det) { try { const r = await SC.det.detect(vid); const q = r.find((x) => x.format === "qr_code") || r.find((x) => C.findTok(x.rawValue) || C.findBySerial(x.rawValue).length); if (q) { txt = q.rawValue; fmt = q.format || "qr_code"; } } catch (e) {} }
-      if (!txt) { txt = frameText(); fmt = "qr_code"; }
-      if (txt) onCode(txt, fmt);
+      let txt = null, fmt = "qr_code", where = null;
+      if (SC.det) { try { const r = await SC.det.detect(vid); const q = r.find((x) => x.format === "qr_code") || r.find((x) => C.findTok(x.rawValue) || C.findBySerial(x.rawValue).length); if (q) { txt = q.rawValue; fmt = q.format || "qr_code"; if (fmt === "qr_code") { const b = q.boundingBox; where = framePos(q.cornerPoints && q.cornerPoints.length ? q.cornerPoints : b ? [{ x: b.x, y: b.y }, { x: b.x + b.width, y: b.y }, { x: b.x + b.width, y: b.y + b.height }, { x: b.x, y: b.y + b.height }] : null); } } } catch (e) {} }
+      if (!txt) { txt = frameText(); fmt = "qr_code"; if (txt) where = framePos(SC.loc); }
+      if (txt) { if (where === "out") misframed(txt); else onCode(txt, fmt, true); }
     }
   } catch (e) { console.error(e); }
   SC.timer = setTimeout(tick, 90);
 }
-function onCode(txt, fmt) {
+function onCode(txt, fmt, framed) {
   if (fmt && fmt !== "qr_code") { const raw = String(txt || "").trim(); if (!C.findTok(raw) && !C.findBySerial(raw).length) return; txt = raw; } // códigos de barras ajenos al inventario se ignoran sin molestar
   const code = fmt && fmt !== "qr_code" ? String(txt) : C.parseCode(txt); if (!code) return;
   const key = C.findTok(code) || "x" + code;
   if (SC.last.k === key && Date.now() - SC.last.at < 3000) { SC.last.at = Date.now(); return; }
   SC.last = { k: key, at: Date.now() };
+  if (framed && (!fmt || fmt === "qr_code")) { FX.scan("frame"); lastFrame = Date.now(); const sc = $("scan"); sc.classList.remove("mis"); $("stip") && ($("stip").hidden = true); }
   processCode(code, "scan");
 }
 function scanProg() {
@@ -1300,7 +1362,8 @@ const A = {
   slooksi: () => { const r = SC.r; if (!r) return; C.markTo(r.own, r.tok, "si"); FX.hit("stamp"); scanResult(r); },
   // ajustes
   theme: (el, e) => setTheme(el.dataset.t, e),
-  sw: (el) => { const k = el.dataset.k; SET[k] = !SET[k]; saveSet(); FX.hit("tap"); V.update(); },
+  sw: (el) => { const k = el.dataset.k; SET[k] = k === "scanTones" ? SET[k] === false : !SET[k]; saveSet(); FX.hit("tap"); V.update(); },
+  tonetest: () => { FX.unlock(); const was = FX.scanTones; FX.scanTones = true; FX.scan("frame"); setTimeout(() => FX.scan("misframe"), 900); setTimeout(() => { FX.scan("present"); FX.scanTones = was; }, 1900); snack("Bien puesto · fuera del recuadro · presente", { icon: "scan" }); },
   refreshinv: async () => { if (!navigator.onLine) return snack("Sin internet. Conéctate para actualizar.", { bad: true }); snack("Actualizando…", { icon: "sync", ms: 8000 }); try { if (S.ops.length) await C.sync(); else await C.pull(); snack("Inventario actualizado", { icon: "check" }); } catch (e) { snack(e.message || "No se pudo actualizar", { bad: true }); } refresh(); },
   syncnow: () => { if (!navigator.onLine) return snack("Sin internet. Se enviará al volver la señal.", { bad: true }); C.sync(); },
   qforce: (el) => { const o = S.ops.find((x) => x.id === el.dataset.id); if (o) C.forceMove(o); },
@@ -1332,8 +1395,7 @@ $("tabs").addEventListener("click", (e) => { const t = e.target.closest(".tab");
 $("fab").onclick = () => openScan("look");
 $("hb").onclick = () => {
   FX.hit("tap");
-  if (L.length && L[L.length - 1].id === "view") { history.back(); return; }
-  if (L.some((x) => x.id === "view")) { closeLayer("view"); return; }
+  if (closeLayer("view")) return;
   const p = stack.pop(); if (p) { U.view = p.view; U.cur = p.cur; mountView("b"); }
 };
 $("net").onclick = () => { if (S.authLost) showLogin(""); else if (U.view !== "queue") go("queue"); };
@@ -1561,7 +1623,7 @@ function guidedOpen(name) {
   gdraw(true);
   if (SET.voice && SRC) voiceStart(true);
 }
-function guidedClose() { voiceOff(null, true); G.on = false; const el = $("guide"); el.hidden = true; el.innerHTML = ""; refresh(); }
+function guidedClose() { dropLayer("guide"); voiceOff(null, true); G.on = false; const el = $("guide"); el.hidden = true; el.innerHTML = ""; refresh(); }
 function gAdvance() {
   const L = G.list, ok = (t) => !C.getMark(G.name, t);
   let j = -1;
@@ -1771,6 +1833,238 @@ document.addEventListener("keydown", (e) => {
   else if (k === "Escape") closeLayer("guide");
 }, true);
 
+/* =================== v11: asistente de voz — te pregunta artículo por artículo =================== */
+// La app pregunta en voz alta «Artículo 730, 390: silla de paleta. ¿Se encuentra?» y marca según lo que respondas.
+// Entiende respuestas naturales: «sí, aquí está», «no lo encuentro», «está pero roto», «luego lo busco», «¿dónde está?»,
+// «repite», «el anterior», «deshaz», «ve al 730390», «nota: le falta una pata», «¿cuántos faltan?», «pausa», «termina».
+const VA = { on: false, kind: "per", ctx: "", list: [], i: 0, rec: null, listening: false, speaking: false, paused: false, gen: 0, sayId: 0, quiet: 0, bad: 0, log: [], area: "", wake: null, timer: 0, heard: "", got: "", done: 0 };
+const vaName = (tok) => (VA.kind === "room" ? C.owner(tok) : VA.ctx);
+const vaPend = () => VA.list.filter((t) => !C.getMark(vaName(t), t));
+const vaTok = () => VA.list[VA.i];
+function vaSpokenMb(tok) {
+  const mb = String(mbOf(tok));
+  if (/^\d{6}$/.test(mb)) return mb.slice(0, 3) + ", " + mb.slice(3);
+  if (/^\d+$/.test(mb)) return mb.length > 4 ? mb.replace(/(\d{3})(?=\d)/g, "$1, ") : mb;
+  return mb.split("").join(" ");
+}
+function vaDesc(tok) { let d = String(descOf(tok) || "").replace(/\s+/g, " ").trim(); if (d.length > 70) d = d.slice(0, 70).replace(/\s+\S*$/, ""); return d.toLowerCase(); }
+function vaParse(txt) {
+  const t = vnorm(txt); if (!t) return null;
+  const w = t.split(" "), ph = " " + t + " ", has = (...a) => a.some((x) => (x.includes(" ") ? ph.includes(" " + x + " ") : w.includes(x)));
+  const nm = t.match(/^(nota|anota|observacion|observaciones|apunta)\s+(.+)$/); if (nm) return { k: "note", note: nm[2] };
+  const digits = t.replace(/[^0-9 ]/g, " ").trim(), joined = digits.replace(/\s+/g, "");
+  if (joined.length >= 4 && joined.length <= 8 && (has("ve", "ir", "busca", "buscar", "marbete", "brinca", "salta a", "vamos al") || /^[0-9 ]+$/.test(t))) return { k: "goto", mb: joined };
+  if (has("pausa", "detente", "deten", "alto", "espera", "esperate", "silencio", "para", "callate")) return { k: "pause" };
+  if (has("termina", "terminar", "finaliza", "finalizar", "ya acabe", "ya termine", "salir", "cierra", "cerrar")) return { k: "end" };
+  if (has("deshaz", "deshacer", "corrige", "corregir", "me equivoque", "equivocacion", "borra", "quita la marca")) return { k: "undo" };
+  if (has("ayuda", "que puedo decir", "opciones", "comandos", "como funciona")) return { k: "help" };
+  if (has("cuantos", "cuantas", "cuanto", "llevo", "faltan", "avance", "progreso", "cuantos quedan")) return { k: "progress" };
+  if (has("donde", "que area", "en que lugar", "ubicacion", "en que salon")) return { k: "where" };
+  if (has("detalles", "detalle", "descripcion", "que es", "mas informacion", "datos", "marca", "modelo", "serie", "describe", "describelo")) return { k: "details" };
+  if (has("repite", "repetir", "repitelo", "otra vez", "de nuevo", "no escuche", "no te escuche", "cual", "como dijiste", "mande", "perdon")) return { k: "repeat" };
+  if (has("anterior", "atras", "regresa", "regresar", "el de antes", "vuelve", "retrocede")) return { k: "prev" };
+  if (has("no se", "no lo se", "luego lo busco", "lo busco", "despues", "luego", "siguiente", "salta", "saltar", "saltalo", "otro", "pasa", "pasale", "omite", "omitir", "todavia no se", "mas tarde")) {
+    if (!has("no se encuentra", "no se ve")) return { k: "skip" };
+  }
+  const c = has("malo", "mala", "roto", "rota", "danado", "danada", "descompuesto", "descompuesta", "no sirve", "no funciona", "deteriorado", "deteriorada", "quebrado", "quebrada", "estropeado") ? "M"
+    : has("regular", "mas o menos", "maso", "desgastado", "desgastada", "gastado", "viejo", "vieja") ? "R"
+    : has("bueno", "buena", "buen estado", "perfecto", "excelente", "nuevo", "nueva") ? "B" : "";
+  const absent = has("no esta", "no se encuentra", "no lo veo", "no la veo", "no lo encuentro", "no la encuentro", "no hay", "no aparece", "no existe", "falta", "faltante", "ausente", "perdido", "perdida", "extraviado", "extraviada", "negativo", "tampoco", "nop", "nel") || (w[0] === "no" && !c);
+  if (absent) return { k: "mark", e: "no" };
+  if (c || has("si", "esta", "aqui", "presente", "lo tengo", "la tengo", "lo veo", "la veo", "se encuentra", "correcto", "afirmativo", "ok", "okay", "listo", "claro", "exacto", "ya", "simon", "aja", "encontrado", "existe")) return { k: "mark", e: "si", c };
+  return null;
+}
+/* ---------- habla y escucha ---------- */
+function vaSay(txt, done) {
+  const ss = window.speechSynthesis, my = ++VA.sayId;
+  vaStopRec(); vaUI();
+  if (!ss || typeof SpeechSynthesisUtterance === "undefined") { VA.speaking = false; done && setTimeout(done, 300); return; }
+  try {
+    ss.cancel(); VA.speaking = true; vaUI();
+    const u = new SpeechSynthesisUtterance(txt); u.lang = "es-MX"; u.rate = 1.02;
+    try { const vs = ss.getVoices(); const v = vs.find((x) => /^es[-_]MX/i.test(x.lang)) || vs.find((x) => /^es/i.test(x.lang)); if (v) u.voice = v; } catch (e) {}
+    let fired = false; const tm = setTimeout(() => fin(), Math.min(16000, 1800 + txt.length * 90));
+    const fin = () => { if (fired) return; fired = true; clearTimeout(tm); if (my !== VA.sayId) return; VA.speaking = false; vaUI(); done && done(); };
+    u.onend = fin; u.onerror = fin; ss.speak(u);
+  } catch (e) { VA.speaking = false; done && done(); }
+}
+function vaStopRec() { const r = VA.rec; VA.rec = null; VA.listening = false; if (r) { r.onend = null; r.onresult = null; r.onerror = null; try { r.abort(); } catch (e) {} } }
+function vaListen() {
+  clearTimeout(VA.timer);
+  if (!VA.on || VA.paused || VA.listening || VA.speaking || !SRC) { vaUI(); return; }
+  if (($("sheet") && $("sheet").open && !$("sheet").classList.contains("closing")) || !$("scan").hidden) { VA.timer = setTimeout(vaListen, 300); return; }
+  const gen = VA.gen; let rec, got = false, err = "";
+  try { rec = new SRC(); } catch (e) { vaNoMic("Este navegador no deja usar el micrófono. Responde con los botones."); return; }
+  rec.lang = "es-MX"; rec.continuous = false; rec.interimResults = false; rec.maxAlternatives = 4;
+  rec.onresult = (ev) => { if (gen !== VA.gen) return; got = true; const r = ev.results[ev.results.length - 1], alts = []; for (let i = 0; i < r.length; i++) alts.push(r[i].transcript); VA.quiet = 0; vaHear(alts); };
+  rec.onerror = (ev) => { err = (ev && ev.error) || "error"; };
+  rec.onend = () => {
+    if (VA.rec === rec) { VA.rec = null; VA.listening = false; }
+    if (gen !== VA.gen || !VA.on || got || VA.paused) { vaUI(); return; }
+    if (err === "not-allowed" || err === "service-not-allowed") { vaNoMic("Permite el micrófono para que te escuche (candado de la barra del navegador). Mientras, responde con los botones."); return; }
+    if (err === "audio-capture") { vaNoMic("No encontré micrófono. Responde con los botones."); return; }
+    if (err === "network") { vaNoMic("Para escucharte, este navegador necesita internet. Responde con los botones."); return; }
+    VA.quiet++;
+    if (VA.quiet === 4) { const tok = vaTok(); vaSay("¿Sigues ahí? " + (tok ? "¿El artículo " + vaSpokenMb(tok) + " se encuentra?" : ""), vaListen); return; }
+    if (VA.quiet >= 9) { vaPause("Pausé porque no escuché respuesta. Toca «Seguir» cuando quieras."); return; }
+    VA.timer = setTimeout(vaListen, 250);
+  };
+  VA.rec = rec; VA.listening = true; vaUI();
+  try { rec.start(); } catch (e) { VA.rec = null; VA.listening = false; VA.timer = setTimeout(vaListen, 700); }
+}
+function vaNoMic(msg) { VA.mic = false; vaStopRec(); vaUI(msg); }
+/* ---------- preguntar y responder ---------- */
+function vaQuestion(tok) {
+  const ar = areaOf(tok) || "", pre = ar && ar !== VA.area ? "En " + scase(ar).toLowerCase() + ". " : ""; VA.area = ar;
+  const d = vaDesc(tok);
+  return pre + "Artículo " + vaSpokenMb(tok) + (d ? ": " + d : "") + ". ¿Se encuentra?";
+}
+function vaAsk(lead) {
+  if (!VA.on) return;
+  const tok = vaNext();
+  if (!tok) { vaFinish(lead); return; }
+  VA.bad = 0; vaUI();
+  vaSay((lead ? lead + " " : "") + vaQuestion(tok), vaListen);
+}
+// el actual si sigue pendiente; si no, el siguiente pendiente (dando la vuelta)
+function vaNext() {
+  if (!VA.list.length) return null;
+  for (let k = 0; k < VA.list.length; k++) { const j = (VA.i + k) % VA.list.length, t = VA.list[j]; if (!C.getMark(vaName(t), t)) { VA.i = j; return t; } }
+  return null;
+}
+function vaMark(e, c, how) {
+  const tok = vaTok(); if (!tok) return;
+  const name = vaName(tok), prev = C.getMark(name, tok);
+  C.markTo(name, tok, e, c ? { c } : {});
+  if (e === "no") FX.hit("stamp");
+  VA.log.unshift({ tok, name, prev: prev ? { e: prev.e, c: prev.c || "", n: prev.n || "" } : null, e, c, how, at: Date.now() }); VA.log = VA.log.slice(0, 30);
+  VA.done++; VA.i = (VA.i + 1) % Math.max(1, VA.list.length);
+  const said = e === "no" ? "No está." : "Presente" + (c ? ", " + CONDN[c].toLowerCase() : "") + ".";
+  VA.got = said;
+  setTimeout(() => vaAsk(said), e === "si" ? 380 : 120); // deja sonar el tono de presente antes de hablar
+}
+function vaUndo() {
+  const l = VA.log.shift(); if (!l) { vaSay("No hay nada que deshacer.", vaListen); return; }
+  C.markTo(l.name, l.tok, l.prev ? l.prev.e : null, l.prev ? { c: l.prev.c, n: l.prev.n } : {}, true);
+  VA.i = Math.max(0, VA.list.indexOf(l.tok)); VA.done = Math.max(0, VA.done - 1); VA.area = "";
+  VA.got = "Deshecho"; FX.hit("undo"); vaAsk("Deshecho.");
+}
+function vaHear(alts) {
+  VA.heard = (alts[0] || "").slice(0, 80);
+  let cmd = null; for (const a of alts) { cmd = vaParse(a); if (cmd) break; }
+  const tok = vaTok();
+  if (!cmd) {
+    VA.bad++; VA.got = ""; vaUI();
+    if (VA.bad >= 2) { VA.bad = 0; vaSay("No te entendí. Responde sí, no, o siguiente.", vaListen); } else VA.timer = setTimeout(vaListen, 150);
+    return;
+  }
+  VA.bad = 0;
+  const S2 = (txt) => vaSay(txt, vaListen);
+  switch (cmd.k) {
+    case "mark": vaMark(cmd.e, cmd.c, "voz"); return;
+    case "skip": { const left = vaPend().length; if (left <= 1) { VA.got = ""; S2("Es el último que queda. ¿Se encuentra?"); return; } VA.i = (VA.i + 1) % VA.list.length; VA.got = "Para después"; vaAsk("Lo dejo para después."); return; }
+    case "repeat": VA.area = ""; VA.got = ""; vaAsk(""); return;
+    case "prev": { const l = VA.log[0]; if (!l) { S2("Todavía no hay uno anterior. ¿Se encuentra este?"); return; } VA.got = "Anterior"; vaUndo(); return; }
+    case "undo": vaUndo(); return;
+    case "where": { const ar = tok ? areaOf(tok) : ""; VA.got = ""; S2(ar ? "Está registrado en " + scase(ar).toLowerCase() + ". ¿Se encuentra?" : "No tiene área registrada. ¿Se encuentra?"); return; }
+    case "details": { if (!tok) return; const m = metaOf(tok), r = C.row(tok), imp = cell(r, K.IM); VA.got = ""; S2(vaDesc(tok) + ". " + (m ? m.replace(/·/g, ",") + ". " : "Sin marca ni serie registradas. ") + (imp ? "Valor " + money0(imp) + ". " : "") + "¿Se encuentra?"); return; }
+    case "progress": { const p = vaPend().length, tot = VA.list.length; VA.got = ""; S2("Llevas " + (tot - p) + " de " + tot + ". Faltan " + p + ". ¿Se encuentra este?"); return; }
+    case "help": VA.got = ""; S2("Responde sí, no, o siguiente. También: está pero roto, ¿dónde está?, detalles, repite, deshaz, ve al número, nota y lo que quieras anotar, pausa o termina. ¿Se encuentra?"); return;
+    case "pause": vaPause(); return;
+    case "end": vaFinish("Terminamos por ahora."); return;
+    case "goto": { const j = VA.list.findIndex((t) => String(mbOf(t)) === cmd.mb); if (j < 0) { VA.got = ""; S2("El marbete " + cmd.mb.split("").join(" ") + " no está en esta lista. ¿Se encuentra el actual?"); return; } VA.i = j; VA.area = ""; VA.got = "Ir al " + cmd.mb; const t2 = VA.list[j]; if (C.getMark(vaName(t2), t2)) { S2("Ese ya está revisado como " + (C.getMark(vaName(t2), t2).e === "si" ? "presente" : "no está") + ". Sigo con los pendientes."); VA.i = (j + 1) % VA.list.length; return; } vaAsk(""); return; }
+    case "note": { if (!tok) return; const name = vaName(tok), m = C.getMark(name, tok), n = (cmd.note.charAt(0).toUpperCase() + cmd.note.slice(1)).slice(0, 300); if (m) C.markTo(name, tok, m.e, { n }); else VA.note = n; VA.got = "Nota guardada"; S2("Anotado. ¿Se encuentra?"); return; }
+  }
+}
+const money0 = (v) => { const n = Number(String(v).replace(/[^0-9.]/g, "")); return n ? Math.round(n).toLocaleString("es-MX") + " pesos" : String(v); };
+// si se dictó una nota antes de marcar, se guarda con la marca
+{ const raw2 = C.markTo; C.markTo = function (name, tok, e, patch, quiet) { if (VA.on && VA.note && e && tok === vaTok()) { patch = Object.assign({}, patch || {}, { n: VA.note }); VA.note = ""; return raw2.call(this, name, tok, e, patch, quiet); } return raw2.apply(this, arguments); }; }
+function vaPause(msg) {
+  VA.paused = true; VA.gen++; clearTimeout(VA.timer); vaStopRec(); VA.sayId++;
+  try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
+  VA.speaking = false; vaUI(msg || "En pausa.");
+}
+function vaResume() { if (!VA.on) return; VA.paused = false; VA.quiet = 0; VA.area = ""; FX.unlock(); vaAsk(""); }
+function vaFinish(lead) {
+  vaPause(); VA.finished = true;
+  const p = vaPend().length, tot = VA.list.length, si = VA.list.filter((t) => C.getMark(vaName(t), t)?.e === "si").length, no = VA.list.filter((t) => C.getMark(vaName(t), t)?.e === "no").length;
+  const txt = (lead ? lead + " " : "") + (p ? "Revisaste " + (tot - p) + " de " + tot + ". Quedan " + p + " pendientes." : "¡Listo! Revisaste todo: " + si + (si === 1 ? " presente" : " presentes") + " y " + no + (no === 1 ? " que no está." : " que no están."));
+  vaUI(txt); vaSayOnly(txt);
+}
+function vaSayOnly(txt) { const p = VA.paused; VA.paused = true; vaSay(txt, () => { VA.paused = p; vaUI(); }); }
+/* ---------- pantalla ---------- */
+function vaOpen(kind, ctx) {
+  if (VA.on) return;
+  const list = kind === "room" ? C.areaSummary(ctx).pend.slice() : C.summaryOf(ctx).pend.slice();
+  if (!list.length) { snack("No hay pendientes aquí.", { icon: "check" }); return; }
+  list.sort((a, b) => (areaOf(a) || "").localeCompare(areaOf(b) || "", "es") || String(mbOf(a)).localeCompare(String(mbOf(b)), "es", { numeric: true }));
+  Object.assign(VA, { on: true, kind, ctx, list, i: 0, paused: false, finished: false, quiet: 0, bad: 0, log: [], area: "", heard: "", got: "", done: 0, note: "", mic: !!SRC });
+  VA.gen++;
+  let el = $("asst"); if (!el) { el = document.createElement("div"); el.id = "asst"; el.className = "asst"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Revisión por voz"); document.body.appendChild(el); }
+  el.hidden = false;
+  el.innerHTML = `<div class="va-top"><button class="gb" type="button" data-act="vaclose" aria-label="Cerrar la revisión por voz">${ic("x")}</button><div class="g-t"><b>${esc(kind === "room" ? scase(ctx) : hname(ctx))}</b><small>Revisión por voz</small></div><button class="gb" type="button" data-act="vahelp" aria-label="Qué puedo decir">${ic("help")}</button></div>
+    <div class="g-prog"><div class="g-bar"><i id="vaBar"></i></div><div class="g-pn" id="vaPn"></div></div>
+    <div class="va-stage"><div class="va-card" id="vaCard"></div><div class="va-ear" id="vaEar" aria-live="polite"></div></div>
+    <div class="va-btns"><button type="button" class="btn dan" data-act="vano">${ic("x")}No está</button><button type="button" class="btn pri" data-act="vasi">${ic("check")}Sí, está</button></div>
+    <div class="va-sec"><button type="button" data-act="vaskip">${ic("skip")}<span>Después</span></button><button type="button" data-act="varep">${ic("sound")}<span>Repetir</span></button><button type="button" data-act="vaundo">${ic("undo")}<span>Deshacer</span></button><button type="button" data-act="vapause" id="vaPz">${ic("mic")}<span>Pausa</span></button></div>`;
+  pushLayer("asst", vaClose);
+  FX.unlock(); FX.hit("whoosh");
+  (async () => { try { VA.wake = await navigator.wakeLock?.request("screen"); } catch (e) { VA.wake = null; } })();
+  const intro = "Revisión por voz" + (kind === "room" ? " de " + scase(ctx).toLowerCase() : " de " + hname(ctx)) + ". Son " + list.length + (list.length === 1 ? " pendiente" : " pendientes") + ". " + (SRC ? "Respóndeme sí, no, o siguiente." : "Responde con los botones.");
+  vaAsk(intro);
+}
+function vaClose() {
+  dropLayer("asst");
+  VA.on = false; VA.gen++; clearTimeout(VA.timer); vaStopRec(); VA.sayId++; VA.speaking = false;
+  try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
+  try { VA.wake && VA.wake.release(); } catch (e) {} VA.wake = null;
+  const el = $("asst"); if (el) { el.hidden = true; el.innerHTML = ""; }
+  if (VA.done) snack(VA.done + (VA.done === 1 ? " artículo revisado" : " artículos revisados") + " por voz", { icon: "mic" });
+  refresh();
+}
+function vaUI(msg) {
+  const el = $("asst"); if (!el || el.hidden || !VA.on) return;
+  const tot = VA.list.length, pend = vaPend().length, rev = tot - pend, tok = VA.finished ? null : vaTok();
+  $("vaBar").style.width = pct(rev, tot) + "%";
+  $("vaPn").innerHTML = `<b>${fmtN(rev)}</b> de ${fmtN(tot)} revisados · ${pend ? (pend === 1 ? "queda 1" : "quedan " + fmtN(pend)) : "¡todo revisado!"}`;
+  const card = $("vaCard");
+  if (tok && !C.getMark(vaName(tok), tok)) {
+    const sig = tok; if (card.dataset.tok !== sig) {
+      card.dataset.tok = sig; const ar = areaOf(tok);
+      card.innerHTML = `${ar ? `<span class="tg w">${ic("pin")}${esc(scase(ar))}</span>` : ""}<div class="va-q">¿Se encuentra?</div><div class="g-mb disp">${esc(mbOf(tok))}</div><div class="g-d">${esc(descOf(tok))}</div><div class="g-m">${esc(metaOf(tok))}</div>${VA.kind === "room" ? `<div class="g-m">${ic("user")} ${esc(tcase(C.owner(tok)))}</div>` : ""}`;
+      if (FX.motion) { card.classList.remove("in"); void card.offsetWidth; card.classList.add("in"); }
+    }
+  } else {
+    card.dataset.tok = "";
+    card.innerHTML = `<div class="va-fin">${ring(pct(rev, tot), "big", pct(rev, tot) + "<small>%</small>")}<h2>${pend ? "En pausa" : "¡Revisaste todo!"}</h2><p class="muted">${pend ? fmtN(pend) + " pendientes por revisar." : "Ve el resumen para finalizar."}</p><button type="button" class="btn pri blk" data-act="vasum">${ic("flag")}Ver resumen</button>${pend ? `<button type="button" class="btn blk" data-act="varesume" style="margin-top:8px">${ic("mic")}Seguir preguntando</button>` : ""}</div>`;
+    FX.fill(card);
+  }
+  const ear = $("vaEar");
+  const state = VA.paused ? "pause" : VA.speaking ? "say" : VA.listening ? "listen" : "wait";
+  const label = { pause: "En pausa", say: "Preguntando…", listen: "Te escucho", wait: VA.mic === false ? "Responde con los botones" : "Un momento…" }[state];
+  ear.className = "va-ear " + state;
+  ear.innerHTML = `<i class="vp" aria-hidden="true"></i><div><b>${label}</b>${VA.heard ? `<span>Escuché: «${esc(VA.heard)}»${VA.got ? " → <strong>" + esc(VA.got) + "</strong>" : ""}</span>` : `<span>${VA.mic === false ? "Esta pantalla también funciona sin voz." : "Di «sí», «no» o «siguiente»"}</span>`}${msg ? `<span class="va-msg">${esc(msg)}</span>` : ""}</div>`;
+  const pz = $("vaPz"); if (pz) { pz.innerHTML = VA.paused ? ic("mic") + "<span>Seguir</span>" : ic("pause") + "<span>Pausa</span>"; pz.dataset.act = VA.paused ? "varesume" : "vapause"; }
+  el.querySelectorAll(".va-btns button,[data-act=vaskip],[data-act=varep]").forEach((b) => (b.disabled = !tok || VA.finished));
+}
+function vaTap(fn) { VA.paused = false; VA.finished = false; VA.gen++; vaStopRec(); VA.sayId++; try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {} VA.speaking = false; VA.heard = ""; FX.unlock(); fn(); }
+document.addEventListener("visibilitychange", () => { if (document.hidden && VA.on && !VA.paused) vaPause("Pausé porque saliste de la app."); });
+Object.assign(A, {
+  vavoice: () => vaOpen(U.view === "room" ? "room" : "per", U.cur),
+  vaclose: () => closeLayer("asst"),
+  vasi: () => vaTap(() => vaMark("si", "", "toque")),
+  vano: () => vaTap(() => vaMark("no", "", "toque")),
+  vaskip: () => vaTap(() => { if (vaPend().length > 1) { VA.i = (VA.i + 1) % VA.list.length; VA.got = "Para después"; vaAsk("Lo dejo para después."); } else vaAsk(""); }),
+  varep: () => vaTap(() => { VA.area = ""; vaAsk(""); }),
+  vaundo: () => vaTap(vaUndo),
+  vapause: () => vaPause(),
+  varesume: () => { VA.finished = false; vaResume(); },
+  vasum: () => { const ctx = VA.ctx, kind = VA.kind; closeThen("asst", () => { if (kind === "per") { U.cur = ctx; go("sum"); } }); },
+  vahelp: () => { vaPause(); sheet.open((box) => { box.innerHTML = `<div class="sh-head"><div class="t"><div class="sh-d" style="font-size:1.25rem">${ic("mic")} Qué puedo decir</div></div><button type="button" class="sh-x" data-act="close" aria-label="Cerrar">${ic("x")}</button></div>
+    <ul class="hl-list">${[["«Sí», «aquí está», «lo tengo»", "lo marca presente"], ["«No», «no lo encuentro», «falta»", "lo marca que no está"], ["«Está pero roto» / «regular»", "presente con su estado"], ["«Siguiente», «luego lo busco»", "lo deja para después"], ["«Repite», «¿cuál?»", "vuelve a preguntar"], ["«¿Dónde está?»", "te dice su área"], ["«Detalles»", "marca, modelo, serie y valor"], ["«Deshaz», «el anterior»", "corrige la última respuesta"], ["«Ve al 730390»", "salta a ese marbete"], ["«Nota: le falta una pata»", "guarda una observación"], ["«¿Cuántos faltan?»", "te dice el avance"], ["«Pausa», «termina»", "se detiene"]].map(([a, b]) => `<li>${ic("check")}<span><b>${a}</b> ${b}</span></li>`).join("")}</ul>
+    <p class="tiny" style="margin-top:10px">Funciona mejor en Chrome de Android, con buena señal. Si no te escucha, usa los botones: la app sigue preguntando en voz alta.</p>`; }, { onclose: () => { if (VA.on && !VA.finished) vaResume(); } }); },
+});
+
 Object.assign(A, {
   help: () => { const f = () => { if (U.view !== "help") go("help"); }; if ($("sheet").open) closeThen("sheet", f); else f(); },
   helpfull: () => closeThen("sheet", () => { if (U.view !== "help") go("help"); }),
@@ -1909,5 +2203,5 @@ try { history.replaceState({ l: 0 }, ""); } catch (e) {}
   await C.start();
   if (wantScan && S.inv) setTimeout(() => openScan("look"), 400);
 })();
-window.__app = { etaMins, etaTxt, DIAG, S, C, sync: C.sync, pull: C.pull, addOp: C.addOp, listFor: C.listFor, U, SET, processCode, go, G };
+window.__app = { layers: () => L.map((x) => x.id), sheet, etaMins, etaTxt, DIAG, S, C, sync: C.sync, pull: C.pull, addOp: C.addOp, listFor: C.listFor, U, SET, processCode, go, G };
 })();

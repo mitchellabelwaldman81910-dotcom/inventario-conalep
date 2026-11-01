@@ -300,6 +300,8 @@ F.readTable = async (file) => {
 
 /* ================= ETIQUETAS QR (mismo diseño y mismo contenido que siempre) ================= */
 const RATIO = 1.42, LOGO_AR = 420 / 355, QX = 60, QY = 265, QS = 880;
+// firma «MW» en la esquina inferior derecha: fuera del QR y de su margen blanco (el QR termina en 1145)
+const SIG_X = 745, SIG_Y = 1288, SIG_W = 210;
 F.RATIO = RATIO;
 const LOGO = new Image(); LOGO.src = "assets/logo.png";
 F.logoReady = () => (LOGO.complete && LOGO.naturalWidth ? Promise.resolve() : new Promise((r) => { LOGO.onload = r; LOGO.onerror = r; }));
@@ -332,6 +334,7 @@ F.drawLabel = (cv, W, it) => {
   const [a, b] = F.labelLines(it); c.fillStyle = "#000"; c.textAlign = "center"; c.textBaseline = "middle";
   fitFont(c, a, "700", 84, 880); c.fillText(a, 500, 1232);
   if (b) { c.fillStyle = "#555"; fitFont(c, b, "400", 48, 880); c.fillText(b, 500, 1335); }
+  if (window.FIRMA) FIRMA.draw(c, SIG_X, SIG_Y, SIG_W);
   c.restore();
   const qr = F.qrOf(it);
   if (qr) drawModules(c, qr, QX * k, QY * k, QS * k);
@@ -435,6 +438,9 @@ F.pdfLabels = async (list, L, onProg) => {
   const g = F.layout(L), k = g.L / 1000, gx = (PAGE.w - 2 * PAGE.m - g.cols * g.cw + 6) / 2;
   const H = PAGE.h * MM; let page;
   const Y = (mm) => H - mm * MM;
+  // la firma se dibuja una sola vez y se reutiliza en cada etiqueta (PDF ligero y vectorial)
+  let sig = null;
+  if (window.FIRMA) { try { const sd = await PL.PDFDocument.create(); const sp = sd.addPage([FIRMA.W, FIRMA.H]); sp.drawSvgPath(FIRMA.D, { x: 0, y: FIRMA.H, color: rgb(29 / 255, 44 / 255, 107 / 255) }); [sig] = await pdf.embedPdf(await sd.save()); } catch (e) { sig = null; } }
   for (let i = 0; i < list.length; i++) {
     const it = list[i], slot = i % g.per; if (slot === 0) page = pdf.addPage([PAGE.w * MM, H]);
     const col = slot % g.cols, row = Math.floor(slot / g.cols), x = PAGE.m + gx + col * g.cw, y = PAGE.m + row * g.ch;
@@ -451,6 +457,7 @@ F.pdfLabels = async (list, L, onProg) => {
     let fs = 84 * k * MM; while (bold.widthOfTextAtSize(wa, fs) > g.L * 0.88 * MM && fs > 5) fs -= 0.5;
     page.drawText(wa, { x: (x + g.L / 2) * MM - bold.widthOfTextAtSize(wa, fs) / 2, y: Y(y + 1232 * k) - fs * 0.35, size: fs, font: bold, color: rgb(0, 0, 0) });
     if (b) { const wb = win(b), fb = 48 * k * MM; page.drawText(wb, { x: (x + g.L / 2) * MM - font.widthOfTextAtSize(wb, fb) / 2, y: Y(y + 1335 * k) - fb * 0.35, size: fb, font, color: rgb(85 / 255, 85 / 255, 85 / 255) }); }
+    if (sig) { const sw = SIG_W * k, sh = sw * FIRMA.ratio; page.drawPage(sig, { x: (x + SIG_X * k) * MM, y: Y(y + SIG_Y * k + sh), width: sw * MM, height: sh * MM }); }
     const d = wrap(it.ds || "", font, 7, g.L * MM).slice(0, 2);
     d.forEach((t, j) => page.drawText(t, { x: x * MM, y: Y(y + g.L * RATIO + 3.5) - j * 8, size: 7, font, color: rgb(60 / 255, 60 / 255, 60 / 255) }));
     if (onProg && i % 40 === 0) { onProg(i, list.length); await tick(); }

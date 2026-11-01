@@ -286,7 +286,7 @@ const QRDec=(()=>{
       const cross=(p.x-t.a.x)*(q.y-t.a.y)-(p.y-t.a.y)*(q.x-t.a.x);
       const TR=cross>0?p:q,BL=cross>0?q:p;
       const r=trySample(bin,w,h,t.a,TR,BL);
-      if(r!==null&&r!==undefined)return r;
+      if(r!==null&&r!==undefined){lastLoc={x:(TR.x+BL.x)/2,y:(TR.y+BL.y)/2};return r}
     }
     return null;
   }
@@ -295,7 +295,9 @@ const QRDec=(()=>{
     for(const th of ths){const bin=binarize(img,th);const r=decodeBin(bin,img.width,img.height);if(r)return r}
     return null;
   }
-  return{decode,_rs:rsCorrect,_decodeMatrix:decodeMatrix};
+  // centro aproximado del último QR leído (en píxeles de la imagen), para saber si quedó dentro del recuadro
+  let lastLoc=null;
+  return{decode:(img,o)=>{lastLoc=null;return decode(img,o)},loc:()=>lastLoc,_rs:rsCorrect,_decodeMatrix:decodeMatrix};
 })();
 if(typeof module!=="undefined")module.exports=QRDec;
 if(typeof window!=="undefined")window.QRDec=QRDec;

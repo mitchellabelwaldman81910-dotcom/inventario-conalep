@@ -1,6 +1,6 @@
 /* Guía de ayuda del inventario CONALEP: una sola fuente para la app del celular y el portal. */
 window.AYUDA = {
-  version: "9.0",
+  version: "11.0",
 
   /* Los 4 pasos de una revisión (se usan en la app, en el portal y en la guía inicial) */
   flujo: [
@@ -51,17 +51,18 @@ window.AYUDA = {
       tips: ["También puedes <b>deslizar la tarjeta</b>: a la derecha = Está, a la izquierda = No está.", "Con teclado: <b>→</b> o <b>Enter</b> = está, <b>←</b> = no está, <b>espacio</b> o <b>↓</b> = saltar, <b>↑</b> = anterior.", "Si escaneas un marbete con un lector USB o Bluetooth, la tarjeta salta a ese bien."],
     },
     {
-      id: "voz", i: "mic", t: "Revisar con la voz (manos libres)",
-      q: "La app te lee cada bien y tú solo contestas. Sirve cuando traes las manos ocupadas.",
-      kw: "voz hablar microfono manos libres dictar escuchar leer en voz alta comandos esta no esta siguiente",
+      id: "voz", i: "mic", t: "Revisión por voz: la app te pregunta",
+      q: "La app te pregunta en voz alta «Artículo 730, 390: silla de paleta. ¿Se encuentra?» y marca según lo que contestes.",
+      kw: "voz hablar microfono manos libres preguntar pregunta se encuentra dictar escuchar contestar responder asistente comandos esta no esta siguiente",
       pasos: [
-        "Abre <b>Revisar uno por uno</b> y toca el <b>micrófono</b> de arriba. La primera vez el navegador pide permiso para usarlo: acepta.",
-        "La app lee en voz alta el <b>marbete</b> (número por número) y la descripción. Cuando termina de leer, escucha.",
-        "Contesta con una palabra: <b>«está»</b> o <b>«no está»</b>. También entiende <b>«siguiente»</b>, <b>«anterior»</b> y <b>«repite»</b>.",
-        "Para el estado físico di <b>«malo»</b> o <b>«regular»</b> (marca el bien como presente con ese estado). Para parar di <b>«pausa»</b>.",
-        "Abajo ves lo que la app escuchó. Si te equivocas, toca <b>Anterior</b> y corrige, o usa los botones: siguen funcionando.",
+        "En la pantalla de una persona toca <b>Revisión por voz</b> (abajo de «Revisar uno por uno»). En un salón está en la barra de abajo: <b>Por voz</b>. La primera vez el navegador pide permiso para el micrófono: acepta.",
+        "La app pregunta por cada artículo pendiente: dice el marbete, qué es y <b>«¿Se encuentra?»</b>. Cuando cambia de área, te avisa.",
+        "Contesta como hablas: <b>«sí, aquí está»</b> o <b>«lo tengo»</b> = presente; <b>«no»</b>, <b>«no lo encuentro»</b> o <b>«falta»</b> = no está; <b>«luego lo busco»</b> o <b>«siguiente»</b> = lo deja para después.",
+        "Para el estado: <b>«está pero roto»</b>, <b>«no funciona»</b> (malo) o <b>«regular»</b>. Para anotar algo: <b>«nota: le falta una pata»</b>.",
+        "También entiende <b>«¿dónde está?»</b> (te dice el área), <b>«detalles»</b> (marca, modelo, serie, valor), <b>«repite»</b>, <b>«deshaz»</b>, <b>«ve al 730390»</b>, <b>«¿cuántos faltan?»</b>, <b>«pausa»</b> y <b>«termina»</b>.",
+        "En pantalla ves la pregunta, lo que escuchó y lo que entendió. Los botones <b>Sí, está</b> / <b>No está</b> / <b>Después</b> siempre funcionan.",
       ],
-      tips: ["Solo funciona en <b>Chrome</b> (Android y computadora) y necesita internet: el reconocimiento de voz lo hace el navegador. En iPhone el botón no aparece.", "En lugares con mucho ruido o eco funciona peor; ponte cerca del teléfono y habla normal, sin gritar.", "Mientras la app lee, no te escucha (para no oírse a sí misma). Espera a que termine.", "Si por unos segundos no hablas, se pausa sola para cuidar la batería: toca el micrófono para seguir.", "Chrome en Android puede hacer un pequeño sonido cada vez que empieza a escuchar; es normal."],
+      tips: ["Escuchar solo funciona en <b>Chrome</b> (Android y computadora) y necesita internet. En otros navegadores la app igual te pregunta en voz alta y contestas con los botones.", "En lugares con ruido funciona peor: habla cerca del teléfono, normal, después de que termine la pregunta.", "Dentro de <b>Revisar uno por uno</b> sigue el micrófono de arriba para leer los bienes en voz alta."],
     },
     {
       id: "salon", i: "pin", t: "Revisar por salón",
@@ -94,13 +95,14 @@ window.AYUDA = {
       kw: "escanear qr camara marbete codigo lector linterna zoom scanner",
       pasos: [
         "Dentro del resguardo de una persona toca <b>Escanear</b> (abajo). La cámara se abre.",
-        "Apunta al código QR de la etiqueta, a unos 15–25 cm. Al leerlo suena, vibra y el bien queda <b>✓ Presente</b>.",
+        "Apunta al código QR de la etiqueta, a unos 15–25 cm, <b>dentro del recuadro</b>. Al leerlo suena, vibra y el bien queda <b>✓ Presente</b>.",
+        "<b>Tres tonos fuertes, como los de un lector profesional:</b> un pitido agudo y corto = el QR quedó <b>bien puesto</b>; dos tonos graves = el QR está <b>fuera del recuadro</b> (acomódalo, no se registra); dos tonos que suben = el artículo quedó <b>presente</b>.",
         "Sigue con el siguiente marbete sin cerrar la cámara. Abajo ves el último leído y cuántos llevas.",
         "Si el bien es de <b>otra persona</b>, la app te lo avisa y te deja <b>trasladarlo</b> aquí.",
         "Si el marbete <b>no está en la lista</b>, puedes anotarlo como <b>sobrante</b> para revisarlo luego en el portal.",
         "<b>Etiqueta dañada:</b> apunta al <b>código de barras del número de serie</b> del equipo (en Chrome de Android), o escribe la serie con el botón del teclado. La app lo encuentra por su serie.",
       ],
-      tips: ["Si varios bienes comparten la misma serie, la app te muestra la lista para que elijas cuál es.", "Los códigos de barras que no son del inventario se ignoran sin molestar.", "Hay botones para <b>linterna</b> y <b>zoom</b> (si tu teléfono los permite).", "El botón del teclado te deja <b>escribir el número</b> si la etiqueta está dañada.", "El botón grande del centro, abajo, sirve para <b>consultar</b> cualquier marbete: te dice de quién es sin marcar nada."],
+      tips: ["Si varios bienes comparten la misma serie, la app te muestra la lista para que elijas cuál es.", "Los códigos de barras que no son del inventario se ignoran sin molestar.", "Los tonos se pueden apagar o probar en <b>Más → Tonos del escáner</b>. En iPhone suenan aunque el interruptor de silencio esté puesto (iOS 17 o más nuevo); el volumen máximo depende del volumen del teléfono.", "Hay botones para <b>linterna</b> y <b>zoom</b> (si tu teléfono los permite).", "El botón del teclado te deja <b>escribir el número</b> si la etiqueta está dañada.", "El botón grande del centro, abajo, sirve para <b>consultar</b> cualquier marbete: te dice de quién es sin marcar nada."],
     },
     {
       id: "estado", i: "note", t: "Estado físico, notas y fotos",
@@ -368,9 +370,9 @@ window.AYUDA = {
       pasos: [
         "Elige qué imprimir: por <b>persona</b>, por <b>área</b>, por <b>rango de números</b> o <b>pegando una lista</b> de marbetes.",
         "Descarga el <b>PDF para imprimir</b> (varias por hoja) o las <b>imágenes PNG en ZIP</b>.",
-        "Cada etiqueta lleva el logo, el QR y el número. El QR abre la ficha del artículo.",
+        "Cada etiqueta lleva el logo, el QR, el número y la <b>firma MW de Mitchell Waldman</b> en la esquina. El QR abre la ficha del artículo.",
       ],
-      tips: ["Las etiquetas nuevas son compatibles con las que ya tienes pegadas: el contenido del QR no cambió."],
+      tips: ["Las etiquetas nuevas son compatibles con las que ya tienes pegadas: el contenido del QR no cambió. La firma va fuera del código y de su margen blanco, así que se lee igual."],
     },
     {
       id: "importar", i: "upload", t: "Importar Excel y respaldo",

@@ -66,7 +66,7 @@ function buildShell() {
     NAV.map(([sec, items]) => (sec ? `<div class="sb-sec">${esc(sec)}</div>` : "") + items.map(([k, ic, label]) => `<a class="nv" href="#/${k}" data-k="${k}">${icon(ic)}<span>${esc(label)}</span><i class="bd" data-b="${k}" hidden></i></a>`).join("")).join("") +
     `<div class="sb-foot"><a class="nv" href="/app/" target="_blank" rel="noopener">${icon("phone")}<span>App de celular</span>${icon("ext", "")}</a><a class="nv" href="#/ayuda" data-k="ayuda" id="helpNav">${icon("help")}<span>Ayuda</span></a><a class="nv" href="#/ajustes" data-k="ajustes">${icon("gear")}<span>Ajustes</span></a>
      <div class="sb-user">${U.avatar(D.user)}<div><b>${esc(D.user)}</b><small>${D.admin ? "Administrador" : "Equipo de revisión"}</small></div><button class="ib" type="button" id="outBtn" aria-label="Salir" data-tip="Salir">${icon("logout")}</button></div>
-     <button class="credit" type="button" id="mitchell">Mitchell</button></div>`;
+     <button class="credit" type="button" id="mitchell" aria-label="Créditos: Mitchell Waldman">${window.FIRMA ? FIRMA.svg("sig", "currentColor", "") : "Mitchell"}</button></div>`;
   $("#outBtn").onclick = async () => { if (await U.confirm("¿Salir del inventario?", "Se borra la copia guardada en este equipo. Para volver a entrar necesitas tu contraseña.", "Salir")) { await D.logout(); location.hash = ""; location.reload(); } };
   $("#mitchell").onclick = credits;
   $("#menuBtn").innerHTML = icon("menu"); $("#menuBtn").onclick = U.toggleSide;
@@ -120,7 +120,7 @@ S.syncPill = () => {
 };
 function credits() {
   FX.confetti({ n: 220 }); FX.hit("done");
-  U.modal({ title: "Acerca del portal", body: `<div class="credits">${U.mark("mk")}<b>Inventario CONALEP</b><p class="muted">Portal de inventario de mobiliario y equipo de la Jefatura de Proyecto de Servicios Administrativos, CONALEP Chetumal.</p><p>Hecho por <strong>Mitchell</strong>.</p></div>`, actions: [{ label: "Cerrar", kind: "pri", value: "x" }] });
+  U.modal({ title: "Acerca del portal", body: `<div class="credits">${U.mark("mk")}<b>Inventario CONALEP</b><p class="muted">Portal de inventario de mobiliario y equipo de la Jefatura de Proyecto de Servicios Administrativos, CONALEP Chetumal.</p><p>Hecho por <strong>Mitchell Waldman</strong>.</p>${window.FIRMA ? FIRMA.svg("sig-big", "currentColor") + '<p class="muted" style="font-size:13px">Su firma va en cada etiqueta QR del inventario.</p>' : ""}</div>`, actions: [{ label: "Cerrar", kind: "pri", value: "x" }] });
 }
 
 /* ================= RESPUESTAS (paleta e Inicio) ================= */
@@ -216,7 +216,7 @@ S.openPal = (initial = "") => {
   out.addEventListener("pointermove", (e) => { const b = e.target.closest(".po"); if (b && +b.dataset.i !== act) { act = +b.dataset.i; entries.forEach((x, i) => x.el.classList.toggle("act", i === act)); } });
   $("[data-x]", pal).onclick = () => S.closePal();
   pal.addEventListener("click", (e) => { if (e.target === pal) S.closePal(); });
-  pal.addEventListener("close", () => { setTimeout(() => pal && !pal.open && pal.remove(), 200); });
+  { const me = pal; me.addEventListener("close", () => { U.layerDrop("pal"); setTimeout(() => { if (!me.open) me.remove(); }, 200); }); }
   const mic = $(".mic", pal);
   if (mic) mic.onclick = () => {
     const rec = new SR(); rec.lang = "es-MX"; rec.interimResults = true; rec.maxAlternatives = 1;
@@ -226,7 +226,7 @@ S.openPal = (initial = "") => {
     rec.onerror = () => { mic.classList.remove("on"); U.toast("No se pudo usar el micrófono.", { kind: "err" }); };
     try { rec.start(); } catch (e) { mic.classList.remove("on"); }
   };
-  pal.showModal(); inp.value = initial; render(); inp.focus();
+  pal.showModal(); U.layerPush("pal", () => S.closePal()); inp.value = initial; render(); inp.focus();
 };
 
 /* ================= FICHA DE UN ARTÍCULO ================= */
@@ -243,10 +243,17 @@ S.openItem = (tok, tab) => {
     dr.addEventListener("cancel", (e) => { e.preventDefault(); closeDr(); });
   }
   drawDr();
+  if (drT) { clearTimeout(drT); drT = 0; dr.classList.remove("closing"); } // se abrió otra mientras se cerraba
   if (!dr.open) { dr.classList.remove("closing"); dr.showModal(); FX.play("whoosh"); const bd = $(".dr-b", dr); if (bd) { bd.tabIndex = -1; bd.focus({ preventScroll: true }); } }
-  history.replaceState(history.state, "", location.href);
+  U.layerPush("dr", () => closeDr(false));
 };
-const closeDr = () => { if (!dr || !dr.open) return; if (!FX.motion) return dr.close(); dr.classList.add("closing"); setTimeout(() => { dr.close(); dr.classList.remove("closing"); }, 230); };
+let drT = 0;
+const closeDr = (eat = true) => {
+  if (!dr || !dr.open || drT) return;
+  U.layerDrop("dr", eat);
+  if (!FX.motion) return dr.close();
+  dr.classList.add("closing"); drT = setTimeout(() => { drT = 0; dr.close(); dr.classList.remove("closing"); }, 230);
+};
 S.closeItem = closeDr;
 S.refreshItem = () => { if (dr && dr.open && !drEdit) drawDr(true); };
 function factsHtml(it) {
@@ -479,7 +486,7 @@ async function enterApp() {
     }
     if (k === "auth-lost") S.showLogin("Tu sesión venció. Entra de nuevo para seguir; no se perdió nada de lo que ya estaba guardado.");
   });
-  addEventListener("hashchange", () => { if (rendered) { S.closeItem(); U.render(); } });
+  addEventListener("hashchange", () => { if (rendered) { closeDr(false); U.layerCloseAll(); U.render(); } });
   try { await D.boot(); firstRender(); }
   catch (e) {
     if (e.code === "unauthenticated") return;

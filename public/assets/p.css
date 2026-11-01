@@ -1037,3 +1037,9 @@ input::placeholder{text-overflow:ellipsis}
 }
 /* ajustes: los interruptores se quedan a la derecha del texto */
 .set:has(>.sw){flex-wrap:nowrap}
+/* v10: firma MW */
+.credit .sig{display:block;width:46px;height:auto}
+.credits .sig-big{width:min(260px,70vw);height:auto;margin-top:4px}
+.credits .sig-big{color:#1d2c6b}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .credits .sig-big{color:#a9bcff}}
+:root[data-theme="dark"] .credits .sig-big{color:#a9bcff}
