@@ -993,3 +993,12 @@ h1,h2{text-wrap:balance}
 .va-sec button:disabled,.va-btns button:disabled{opacity:.4}
 @media (max-height:640px){.va-card .g-mb{font-size:2.6rem}.va-btns .btn{min-height:58px}.va-sec button{height:48px}}
 @media (prefers-reduced-motion:reduce){.va-ear .vp::after,.va-ear.say .vp{animation:none}}
+
+/* v12: elegir tonos */
+.tones{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.li.tone{align-items:center;padding:12px 14px;border:1.5px solid transparent}
+.li.tone b{display:block;font-size:1rem}
+.li.tone small{display:block}
+.li.tone .ic{width:22px;height:22px;flex:none;color:var(--ink3)}
+.li.tone.on{border-color:var(--g);background:var(--gsoft)}
+.li.tone.on .ic{color:var(--g)}

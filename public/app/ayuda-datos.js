@@ -1,6 +1,6 @@
 /* Guía de ayuda del inventario CONALEP: una sola fuente para la app del celular y el portal. */
 window.AYUDA = {
-  version: "11.0",
+  version: "12.0",
 
   /* Los 4 pasos de una revisión (se usan en la app, en el portal y en la guía inicial) */
   flujo: [
@@ -96,13 +96,13 @@ window.AYUDA = {
       pasos: [
         "Dentro del resguardo de una persona toca <b>Escanear</b> (abajo). La cámara se abre.",
         "Apunta al código QR de la etiqueta, a unos 15–25 cm, <b>dentro del recuadro</b>. Al leerlo suena, vibra y el bien queda <b>✓ Presente</b>.",
-        "<b>Tres tonos fuertes, como los de un lector profesional:</b> un pitido agudo y corto = el QR quedó <b>bien puesto</b>; dos tonos graves = el QR está <b>fuera del recuadro</b> (acomódalo, no se registra); dos tonos que suben = el artículo quedó <b>presente</b>.",
+        "<b>Tres tonos fuertes, como los de un lector profesional:</b> un pitido grave y corto = el QR quedó <b>bien puesto</b>; un zumbido largo = el QR está <b>fuera del recuadro</b> (acomódalo, no se registra); un pitido largo = el artículo quedó <b>presente</b>. Puedes cambiar el sonido en <b>Más → Elegir los tonos</b>.",
         "Sigue con el siguiente marbete sin cerrar la cámara. Abajo ves el último leído y cuántos llevas.",
         "Si el bien es de <b>otra persona</b>, la app te lo avisa y te deja <b>trasladarlo</b> aquí.",
         "Si el marbete <b>no está en la lista</b>, puedes anotarlo como <b>sobrante</b> para revisarlo luego en el portal.",
         "<b>Etiqueta dañada:</b> apunta al <b>código de barras del número de serie</b> del equipo (en Chrome de Android), o escribe la serie con el botón del teclado. La app lo encuentra por su serie.",
       ],
-      tips: ["Si varios bienes comparten la misma serie, la app te muestra la lista para que elijas cuál es.", "Los códigos de barras que no son del inventario se ignoran sin molestar.", "Los tonos se pueden apagar o probar en <b>Más → Tonos del escáner</b>. En iPhone suenan aunque el interruptor de silencio esté puesto (iOS 17 o más nuevo); el volumen máximo depende del volumen del teléfono.", "Hay botones para <b>linterna</b> y <b>zoom</b> (si tu teléfono los permite).", "El botón del teclado te deja <b>escribir el número</b> si la etiqueta está dañada.", "El botón grande del centro, abajo, sirve para <b>consultar</b> cualquier marbete: te dice de quién es sin marcar nada."],
+      tips: ["Si varios bienes comparten la misma serie, la app te muestra la lista para que elijas cuál es.", "Los códigos de barras que no son del inventario se ignoran sin molestar.", "Los tonos se pueden apagar o probar en <b>Más → Elegir los tonos</b>. En iPhone suenan aunque el interruptor de silencio esté puesto (iOS 17 o más nuevo); el volumen máximo depende del volumen del teléfono.", "Hay botones para <b>linterna</b> y <b>zoom</b> (si tu teléfono los permite).", "El botón del teclado te deja <b>escribir el número</b> si la etiqueta está dañada.", "El botón grande del centro, abajo, sirve para <b>consultar</b> cualquier marbete: te dice de quién es sin marcar nada."],
     },
     {
       id: "estado", i: "note", t: "Estado físico, notas y fotos",

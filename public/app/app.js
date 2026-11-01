@@ -27,10 +27,10 @@ const rj = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } 
 const wj = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 
 /* ---------- ajustes ---------- */
-const SET = Object.assign({ theme: "auto", sound: true, vib: true, auto: true, less: false, sort: "az", group: false, text: 0, tips: true, sign: true, voice: false, scanTones: true }, rj("cnlp_set", {}));
+const SET = Object.assign({ theme: "auto", sound: true, vib: true, auto: true, less: false, sort: "az", group: false, text: 0, tips: true, sign: true, voice: false, scanTones: true, tonePack: "esc_grave" }, rj("cnlp_set", {}));
 const mqReduce = matchMedia("(prefers-reduced-motion: reduce)"), mqDark = matchMedia("(prefers-color-scheme: dark)");
 function applySet() {
-  FX.sound = SET.sound; FX.vib = SET.vib; FX.scanTones = SET.scanTones !== false; FX.motion = !SET.less && !mqReduce.matches;
+  FX.sound = SET.sound; FX.vib = SET.vib; FX.scanTones = SET.scanTones !== false; FX.pack = FX.PACKS && FX.PACKS.includes(SET.tonePack) ? SET.tonePack : "esc_grave"; FX.motion = !SET.less && !mqReduce.matches;
   const de = document.documentElement; de.classList.toggle("lessmo", !!SET.less); de.style.fontSize = ["100%", "112%", "125%"][SET.text || 0] || "100%"; de.dataset.text = String(SET.text || 0);
   if (SET.theme === "auto") de.removeAttribute("data-theme"); else de.setAttribute("data-theme", SET.theme);
   metaTheme();
@@ -155,6 +155,8 @@ function fday(t) {
 const longDate = () => cap(new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" }));
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches"; };
 const money = (n) => n.toLocaleString("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 });
+const TONEN = { escaner: "Escáner real", esc_grave: "Escáner grave", esc_agudo: "Escáner agudo", esc_suave: "Escáner suave", esc_industrial: "Escáner industrial", esc_rapido: "Escáner rápido", cristal: "Cristal", marimba: "Marimba", aviso: "Campanilla de aviso", digital: "Digital minimalista", sonar: "Sonar", campana: "Campana elegante", lector: "Lector de almacén", sistema: "Aviso de celular", caja: "Punto de venta", terminal: "Terminal (versión anterior)" };
+const TONED = { escaner: "Pitido de lector · zumbido de error · doble pitido", esc_grave: "Pitido grave · zumbido largo · un pitido largo", esc_agudo: "Pitido agudo · tres zumbidos cortos · doble pitido", esc_suave: "Pitido redondo · zumbido suave · doble pitido", esc_industrial: "Pitido áspero · zumbido que tiembla · pitido que sube", esc_rapido: "Pitido corto · dos zumbidos · tres pitidos veloces", cristal: "«Ting» de copa · golpe sordo · dos copas que suben", marimba: "Nota de madera · dos notas graves · tres notas que suben", aviso: "Una campanilla · «ding-dong» que baja · «ding-dong» que sube", digital: "Clic nítido · zumbido corto · clic y tono limpio", sonar: "«Ping» con eco · ping grave · doble ping brillante", campana: "Campana clara · dos golpes de madera · acorde de campanas", lector: "Pitido agudo · zumbido grave · doble pitido", sistema: "«Tic» que sube · dos notas que bajan · dos notas que suben", caja: "«Bip» seco · tres bips graves · tono largo de aceptado", terminal: "Pitido de 2.7 kHz · dos tonos graves · dos tonos que suben" };
 const CONDN = { B: "Bueno", R: "Regular", M: "Malo" };
 const isNA = (x) => !x || /^(s\/?[mn]|sin (modelo|marca|serie)|n\/?a|-+|no aplica)$/i.test(x);
 const mbOf = (tok) => cell(C.row(tok), K.MB) || tok.slice(1);
@@ -916,7 +918,7 @@ VIEWS.more = {
       <div class="set-g"><button type="button" class="set-r" data-act="sw" data-k="auto">${ic("bolt")}<span class="t">Marcar presente al escanear<small>Si lo apagas, la app pregunta cada vez</small></span>${sw("auto", SET.auto)}</button>
         <button type="button" class="set-r" data-act="sw" data-k="sound">${ic("sound")}<span class="t">Sonidos</span>${sw("sound", SET.sound)}</button>
         <button type="button" class="set-r" data-act="sw" data-k="scanTones">${ic("scan")}<span class="t">Tonos del escáner<small>A todo volumen: QR bien puesto, QR fuera del recuadro y artículo presente</small></span>${sw("scanTones", SET.scanTones !== false)}</button>
-        <button type="button" class="set-r" data-act="tonetest">${ic("sound")}<span class="t">Probar los tres tonos<small>Bien puesto · fuera del recuadro · presente</small></span>${ic("chev")}</button>
+        <button type="button" class="set-r" data-act="tonepick">${ic("sound")}<span class="t">Elegir los tonos<small>${esc(TONEN[SET.tonePack] || TONEN.escaner)} · toca para escuchar y cambiar</small></span>${ic("chev")}</button>
         <button type="button" class="set-r" data-act="sw" data-k="vib">${ic("vib")}<span class="t">Vibración<small>En Android</small></span>${sw("vib", SET.vib)}</button>
         <button type="button" class="set-r" data-act="sw" data-k="sign">${ic("pen")}<span class="t">Pedir firma al finalizar<small>La persona firma con el dedo y sale en el acta del portal</small></span>${sw("sign", SET.sign !== false)}</button>
         <button type="button" class="set-r" data-act="sw" data-k="tips">${ic("bulb")}<span class="t">Consejos en pantalla<small>Avisos cortos que explican cada pantalla la primera vez</small></span>${sw("tips", SET.tips !== false)}</button>
@@ -1363,6 +1365,11 @@ const A = {
   // ajustes
   theme: (el, e) => setTheme(el.dataset.t, e),
   sw: (el) => { const k = el.dataset.k; SET[k] = k === "scanTones" ? SET[k] === false : !SET[k]; saveSet(); FX.hit("tap"); V.update(); },
+  tonepick: () => sheet.open((box) => {
+    const row = (k) => `<button type="button" class="li tone${SET.tonePack === k ? " on" : ""}" data-act="toneset" data-k="${k}"><span class="t"><b>${esc(TONEN[k])}</b><small>${esc(TONED[k])}</small></span>${SET.tonePack === k ? ic("check") : ic("sound")}</button>`;
+    box.innerHTML = `<div class="sh-head"><div class="t"><div class="sh-d" style="font-size:1.25rem">Tonos del escáner</div><div class="tiny">Toca uno para escucharlo; queda elegido. Suenan: bien puesto, fuera del recuadro y presente.</div></div><button type="button" class="sh-x" data-act="close" aria-label="Cerrar">${ic("x")}</button></div><div class="tones">${FX.PACKS.map(row).join("")}</div>`;
+  }),
+  toneset: (el) => { SET.tonePack = el.dataset.k; saveSet(); A.tonetest(); sheet.redraw(); },
   tonetest: () => { FX.unlock(); const was = FX.scanTones; FX.scanTones = true; FX.scan("frame"); setTimeout(() => FX.scan("misframe"), 900); setTimeout(() => { FX.scan("present"); FX.scanTones = was; }, 1900); snack("Bien puesto · fuera del recuadro · presente", { icon: "scan" }); },
   refreshinv: async () => { if (!navigator.onLine) return snack("Sin internet. Conéctate para actualizar.", { bad: true }); snack("Actualizando…", { icon: "sync", ms: 8000 }); try { if (S.ops.length) await C.sync(); else await C.pull(); snack("Inventario actualizado", { icon: "check" }); } catch (e) { snack(e.message || "No se pudo actualizar", { bad: true }); } refresh(); },
   syncnow: () => { if (!navigator.onLine) return snack("Sin internet. Se enviará al volver la señal.", { bad: true }); C.sync(); },
