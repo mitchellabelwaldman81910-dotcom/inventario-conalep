@@ -1,6 +1,6 @@
 /* Guía de ayuda del inventario CONALEP: una sola fuente para la app del celular y el portal. */
 window.AYUDA = {
-  version: "13.0",
+  version: "15.0",
 
   /* Los 4 pasos de una revisión (se usan en la app, en el portal y en la guía inicial) */
   flujo: [
@@ -64,6 +64,35 @@ window.AYUDA = {
         "En pantalla ves la pregunta, lo que escuchó y lo que entendió. Los botones <b>Sí, está</b> / <b>No está</b> / <b>Después</b> siempre funcionan.",
       ],
       tips: ["Escuchar solo funciona en <b>Chrome</b> (Android y computadora) y necesita internet. En otros navegadores la app igual te pregunta en voz alta y contestas con los botones.", "En lugares con ruido funciona peor: habla cerca del teléfono, normal, después de que termine la pregunta.", "Dentro de <b>Revisar uno por uno</b> sigue el micrófono de arriba para leer los bienes en voz alta."],
+    },
+    {
+      id: "conny", i: "mic", t: "Conny: la asistente por voz",
+      q: "Platica con ella, pregúntale lo que quieras del inventario y pídele que marque artículos.",
+      kw: "conny asistente voz inteligencia artificial ia hablar preguntar platicar chiste marcar baja cuantos quien tiene cuanto vale conversacion microfono",
+      pasos: [
+        "Toca <b>Asistente</b> en Inicio, el micrófono junto al buscador de <b>Buscar</b>, o <b>Preguntarle al inventario</b> en Más. Ella te saluda y te dice cómo vas.",
+        "Habla como con una persona. Pregunta datos: <b>«¿cuántas sillas hay?»</b>, <b>«¿quién tiene más computadoras?»</b>, <b>«¿cuánto vale el 730390?»</b>, <b>«¿qué hay en la bodega?»</b>. Ella consulta <b>todo el inventario</b> antes de contestar.",
+        "Pídele cambios: <b>«marca que el 730390 no está»</b>, <b>«marca este artículo como presente»</b> (el último que abriste), <b>«propón la baja del 730390 por daño»</b>, <b>«quita la baja del 730390»</b>. Te confirma lo que hizo y con <b>«deshaz»</b> lo regresa a como estaba. Si dudó de cuál artículo era, primero te pregunta.",
+        "También abre pantallas y empieza revisiones: <b>«abre las bajas sugeridas»</b>, <b>«ve a Inicio»</b>, <b>«revisa a Juan Pérez»</b>, <b>«abre el salón de sistemas»</b>.",
+        "Pregúntale cómo se usa la app (<b>«¿cómo finalizo un inventario?»</b>), pídele un chiste o platica un rato: te recuerda lo que acaban de decir.",
+        "Para terminar di <b>«gracias, eso es todo»</b> o toca la X. <b>«Pausa»</b> detiene el micrófono."
+      ],
+      tips: ["Necesita <b>internet</b>, <b>Chrome</b> y tener activada «Voz con inteligencia artificial» en Más. Manda a la IA el <b>texto</b> de lo que dices (no tu voz) y los resúmenes que ella pide del inventario; gasta créditos de Netlify.", "Si no entendió, repítelo con otras palabras o dilo con el número de marbete.", "Ella solo puede marcar, proponer o quitar una baja, y abrir pantallas. No finaliza inventarios ni borra nada."]
+    },
+    {
+      id: "bajas", i: "archive", t: "Bajas de bienes",
+      q: "Proponer la baja de lo dañado, obsoleto o perdido, y llevar la lista.",
+      kw: "baja bajas dar de baja desecho dañado obsoleto robo extravio donacion inservible propuesta lista csv excel",
+      pasos: [
+        "Entra a <b>Bajas</b> desde Inicio o desde Más.",
+        "<b>Resumen:</b> cuántas hay propuestas, sugeridas y ya en baja, con su valor, por motivo y por área. Aquí copias o compartes la lista, o la descargas para Excel (CSV).",
+        "<b>Sugeridas:</b> bienes marcados en estado Malo o que <b>no están</b> y todavía sin baja. Tócalos para proponer la baja.",
+        "<b>Propuestas:</b> los que ya propusiste. Tócalos para cambiar el motivo o quitar la propuesta.",
+        "<b>Ya en baja:</b> los que la lista maestra ya trae como BAJA (en su área o resguardante). Solo se consultan.",
+        "<b>Buscar:</b> cualquier artículo por marbete, descripción o persona. También puedes tocar <b>Proponer baja de este bien</b> en la ficha de cualquier bien.",
+        "Al proponer eliges el <b>motivo</b>: dañado sin reparación, obsoleto, desecho o inservible, robo o extravío, donación o entrega, u otro; y puedes escribir un detalle."
+      ],
+      tips: ["Proponer una baja <b>no la tramita</b>: deja constancia en las observaciones del bien (empiezan con «BAJA ·») y viaja al portal con tu revisión. La baja oficial se hace fuera de la app.", "Robo o extravío deja el bien como <b>No está</b>; los demás motivos lo dejan como <b>Presente</b> en mal estado (si no lo habías marcado).", "También se hace por voz con Conny: «propón la baja del 730390 por daño»."]
     },
     {
       id: "salon", i: "pin", t: "Revisar por salón",

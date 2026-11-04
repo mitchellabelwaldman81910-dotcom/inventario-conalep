@@ -5,7 +5,7 @@
 "use strict";
 // acentos solo para mostrar (el Excel viene en MAYÚSCULAS sin acentos); ver acentos.js
 const accent = (t) => (typeof window.acentuar === "function" ? window.acentuar(t) : t);
-const VERSION = "13.0";
+const VERSION = "15.0";
 const TK = "cnlp_token", UK = "cnlp_user";
 const SIN = "(Sin resguardante)";
 const clean = (v) => String(v ?? "").replace(/\s+/g, " ").trim();
