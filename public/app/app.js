@@ -375,7 +375,7 @@ VIEWS.home = {
         <div class="legend"><span><i style="background:#9BE3C8"></i>Presentes <b id="hSiN"></b></span><span><i style="background:#FF9C8F"></i>No están <b id="hNoN"></b></span><span><i style="background:rgba(255,255,255,.35)"></i>Pendientes <b id="hPeN"></b></span></div>
         <div class="hero-f"><span>Resguardantes finalizados</span><b id="hFin"></b></div>
       </section>
-      <div class="qa"><button type="button" class="qa-b wide" data-act="rooms">${ic("pin")}<span><b>Revisar por salón</b><small>Estás en un lugar: ve todos sus bienes, de quien sean, y márcalos</small></span></button><button type="button" class="qa-b" data-act="scanlook">${ic("scan")}<span><b>Escanear un bien</b><small>Ver de quién es</small></span></button><button type="button" class="qa-b" data-act="bajas">${ic("archive")}<span><b>Bajas</b><small>Proponer y revisar</small></span></button>${SRC ? `<button type="button" class="qa-b" data-act="vachat">${ic("mic")}<span><b>Asistente</b><small>Habla con ella</small></span></button>` : ""}<button type="button" class="qa-b" data-act="help">${ic("help")}<span><b>Ayuda y guía</b><small>Cómo funciona todo</small></span></button></div>
+      <div class="qa"><button type="button" class="qa-b wide" data-act="rooms">${ic("pin")}<span><b>Revisar por salón</b><small>Estás en un lugar: ve todos sus bienes, de quien sean, y márcalos</small></span></button><button type="button" class="qa-b" data-act="scanlook">${ic("scan")}<span><b>Escanear un bien</b><small>Ver de quién es</small></span></button><button type="button" class="qa-b" data-act="bajas">${ic("archive")}<span><b>Bajas</b><small>Proponer y revisar</small></span></button><button type="button" class="qa-b" data-act="vachat">${ic("spark")}<span><b>Lua</b><small>Habla o escríbele</small></span></button><button type="button" class="qa-b" data-act="help">${ic("help")}<span><b>Ayuda y guía</b><small>Cómo funciona todo</small></span></button></div>
       <div id="hInst"></div>
       <div class="sec"><h2>Elige a quién vas a revisar</h2><span class="tiny" id="hCount"></span></div>
       <p class="tiny sub">Resguardante = la persona responsable de esos bienes. Toca a una para ver y revisar los suyos.</p>
@@ -826,7 +826,7 @@ VIEWS.search = {
   head: () => ({ t: "Buscar", s: fmtN(Object.keys(S.inv?.i || {}).length) + " artículos" }),
   mount(pg) {
     pg.innerHTML = `<div class="greet"><h1>Buscar un bien</h1><p>Por marbete, descripción, serie, marca, área o resguardante.</p></div>
-      <div class="tools"><div class="srch">${ic("search")}<input id="gq" type="search" placeholder="Ej. 734821 o monitor lenovo" autocomplete="off" enterkeyhint="search" aria-label="Buscar en todo el inventario"><button class="clr" type="button" data-act="gclr" aria-label="Borrar" hidden>${ic("x")}</button></div><button type="button" class="ibtn" data-act="scanlook" aria-label="Escanear para consultar">${ic("scan")}</button>${SRC ? `<button type="button" class="ibtn" data-act="vachat" aria-label="Preguntar con la voz">${ic("mic")}</button>` : ""}</div>
+      <div class="tools"><div class="srch">${ic("search")}<input id="gq" type="search" placeholder="Ej. 734821 o monitor lenovo" autocomplete="off" enterkeyhint="search" aria-label="Buscar en todo el inventario"><button class="clr" type="button" data-act="gclr" aria-label="Borrar" hidden>${ic("x")}</button></div><button type="button" class="ibtn" data-act="scanlook" aria-label="Escanear para consultar">${ic("scan")}</button><button type="button" class="ibtn" data-act="vachat" aria-label="Hablar con Lua">${ic("spark")}</button></div>
       <div id="gRec"></div><div class="tiny" id="gInfo" style="margin:4px 2px 8px"></div><div class="ilist" id="gRes"></div>`;
     const q = $("gq"); q.value = U.gq; let t = 0;
     q.oninput = () => { U.gq = q.value; clearTimeout(t); t = setTimeout(() => this.update(), 120); };
@@ -921,7 +921,7 @@ VIEWS.more = {
         <button type="button" class="set-r" data-act="sw" data-k="sound">${ic("sound")}<span class="t">Sonidos</span>${sw("sound", SET.sound)}</button>
         <button type="button" class="set-r" data-act="sw" data-k="scanTones">${ic("scan")}<span class="t">Tonos del escáner<small>A todo volumen: QR bien puesto, QR fuera del recuadro y artículo presente</small></span>${sw("scanTones", SET.scanTones !== false)}</button>
         <button type="button" class="set-r" data-act="tonepick">${ic("sound")}<span class="t">Elegir los tonos<small>${esc(TONEN[SET.tonePack] || TONEN.escaner)} · toca para escuchar y cambiar</small></span>${ic("chev")}</button>
-        ${SRC ? `<button type="button" class="set-r" data-act="vachat">${ic("mic")}<span class="t">Preguntarle al inventario<small>Habla y pregunta lo que quieras: cuántos hay, de quién son, cuánto valen…</small></span>${ic("chev")}</button>` : ""}
+        <button type="button" class="set-r" data-act="vachat">${ic("spark")}<span class="t">Hablar con Lua<small>Tu asistente: pregúntale lo que quieras, por voz o escribiendo</small></span>${ic("chev")}</button>
         <button type="button" class="set-r" data-act="sw" data-k="ia">${ic("mic")}<span class="t">Voz con inteligencia artificial<small>Entiende frases libres y contesta preguntas. Manda a la IA el texto de lo que dices (no tu voz) y gasta créditos de Netlify</small></span>${sw("ia", SET.ia !== false)}</button>
         <button type="button" class="set-r" data-act="sw" data-k="vib">${ic("vib")}<span class="t">Vibración<small>En Android</small></span>${sw("vib", SET.vib)}</button>
         <button type="button" class="set-r" data-act="sw" data-k="sign">${ic("pen")}<span class="t">Pedir firma al finalizar<small>La persona firma con el dedo y sale en el acta del portal</small></span>${sw("sign", SET.sign !== false)}</button>
@@ -2064,22 +2064,29 @@ function vaParse(txt, ctx) {
 /* @@VZ-END */
 /* ---------- habla y escucha ---------- */
 function vaSay(txt, done) {
-  const ss = window.speechSynthesis, my = ++VA.sayId; VA.said = vnorm(txt);
+  const ss = window.speechSynthesis, my = ++VA.sayId, clean = vzClean(txt); VA.said = vnorm(clean);
   vaStopRec(); vaUI();
-  if (!ss || typeof SpeechSynthesisUtterance === "undefined") { VA.speaking = false; done && setTimeout(done, 300); return; }
+  if (!ss || typeof SpeechSynthesisUtterance === "undefined" || !clean) { VA.speaking = false; done && setTimeout(done, 300); return; }
   try {
     ss.cancel(); VA.speaking = true; vaUI();
-    const u = new SpeechSynthesisUtterance(txt); u.lang = "es-MX"; u.rate = 1.02;
-    try { const vs = ss.getVoices(); const v = vs.find((x) => /^es[-_]MX/i.test(x.lang)) || vs.find((x) => /^es/i.test(x.lang)); if (v) u.voice = v; } catch (e) {}
-    let fired = false; const tm = setTimeout(() => fin(), Math.min(16000, 1800 + txt.length * 90));
+    const parts = vzChunks(clean), voice = vzPickVoice(); let i = 0, fired = false;
     const fin = () => { if (fired) return; fired = true; clearTimeout(tm); if (my !== VA.sayId) return; VA.speaking = false; vaUI(); done && done(); };
-    u.onend = fin; u.onerror = fin; ss.speak(u);
+    const tm = setTimeout(fin, Math.min(70000, 3000 + clean.length * 100));
+    const next = () => {
+      if (my !== VA.sayId || fired) return;
+      if (i >= parts.length) { fin(); return; }
+      const piece = parts[i++], u = new SpeechSynthesisUtterance(piece); u.lang = "es-MX"; u.rate = 1; u.pitch = 1; if (voice) u.voice = voice;
+      let ended = false; const ok = () => { if (ended) return; ended = true; clearTimeout(wd); next(); };
+      const wd = setTimeout(ok, Math.min(16000, 1800 + piece.length * 110));
+      u.onend = ok; u.onerror = ok; ss.speak(u);
+    };
+    next();
   } catch (e) { VA.speaking = false; done && done(); }
 }
 function vaStopRec() { const r = VA.rec; VA.rec = null; VA.listening = false; if (r) { r.onend = null; r.onresult = null; r.onerror = null; try { r.abort(); } catch (e) {} } }
 function vaListen() {
   clearTimeout(VA.timer);
-  if (!VA.on || VA.paused || VA.listening || VA.speaking || !SRC) { vaUI(); return; }
+  if (!VA.on || VA.paused || VA.listening || VA.speaking || VA.typing || !SRC) { vaUI(); return; }
   if (($("sheet") && $("sheet").open && !$("sheet").classList.contains("closing")) || !$("scan").hidden) { VA.timer = setTimeout(vaListen, 300); return; }
   const gen = VA.gen; let rec, got = false, err = "";
   try { rec = new SRC(); } catch (e) { vaNoMic("Este navegador no deja usar el micrófono. Responde con los botones."); return; }
@@ -2089,9 +2096,9 @@ function vaListen() {
   rec.onend = () => {
     if (VA.rec === rec) { VA.rec = null; VA.listening = false; }
     if (gen !== VA.gen || !VA.on || got || VA.paused) { vaUI(); return; }
-    if (err === "not-allowed" || err === "service-not-allowed") { vaNoMic("Permite el micrófono para que te escuche (candado de la barra del navegador). Mientras, responde con los botones."); return; }
-    if (err === "audio-capture") { vaNoMic("No encontré micrófono. Responde con los botones."); return; }
-    if (err === "network") { vaNoMic("Para escucharte, este navegador necesita internet. Responde con los botones."); return; }
+    if (err === "not-allowed" || err === "service-not-allowed") { vaNoMic(IOS ? "En iPhone: Ajustes → General → Teclado → activa «Dictado», y en Ajustes → Safari permite el micrófono. Mientras, " + (VA.kind === "chat" ? "escribe tu pregunta abajo." : "responde con los botones.") : "Permite el micrófono para que te escuche (candado de la barra del navegador). Mientras, " + (VA.kind === "chat" ? "escribe tu pregunta abajo." : "responde con los botones.")); return; }
+    if (err === "audio-capture") { vaNoMic("No encontré micrófono. " + (VA.kind === "chat" ? "Escribe tu pregunta abajo." : "Responde con los botones.")); return; }
+    if (err === "network") { vaNoMic("Para escucharte, este navegador necesita internet. " + (VA.kind === "chat" ? "Escribe tu pregunta abajo." : "Responde con los botones.")); return; }
     VA.quiet++;
     if (VA.quiet === 4) { const tok = vaTok(); vaSay("¿Sigues ahí? " + (tok ? "¿El artículo " + vaSpokenMb(tok) + " se encuentra?" : ""), vaListen); return; }
     if (VA.quiet >= 9) { vaPause("Pausé porque no escuché respuesta. Toca «Seguir» cuando quieras."); return; }
@@ -2227,6 +2234,35 @@ function vaTool(q) {
   return txt.slice(0, 3500);
 }
 /* ---------- v14: la IA entiende lo que las reglas no ---------- */
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+// elige la mejor voz en español que tenga el teléfono (las «premium», «mejoradas» o de Google suenan mucho más naturales)
+let VZ_VOICE = null, VZ_VOICE_N = -1;
+function vzPickVoice() {
+  const ss = window.speechSynthesis; if (!ss) return null;
+  let vs = []; try { vs = ss.getVoices() || []; } catch (e) {}
+  if (VZ_VOICE && VZ_VOICE_N === vs.length) return VZ_VOICE;
+  const sc = (v) => {
+    const n = v.name || "", l = v.lang || ""; let k = 0;
+    if (/^es[-_]MX/i.test(l)) k += 50; else if (/^es[-_](US|419)/i.test(l)) k += 38; else if (/^es[-_]ES/i.test(l)) k += 12; else k += 18;
+    if (/premium|enhanced|mejorad|natural|neural|online/i.test(n)) k += 40;
+    if (/google/i.test(n)) k += 25;
+    if (/paulina|ang[eé]lica|m[oó]nica|juan|jorge|sabina|dalia|marisol|diego|siri/i.test(n)) k += 15;
+    if (/compact|eloquence|novelty|whisper|bells|boing|organ|zarvox|trinoids|cellos/i.test(n)) k -= 60;
+    if (v.localService === false) k += 5;
+    return k;
+  };
+  const es = vs.filter((v) => /^es([-_]|$)/i.test(v.lang || "")).sort((a, b) => sc(b) - sc(a));
+  VZ_VOICE = es[0] || null; VZ_VOICE_N = vs.length; return VZ_VOICE;
+}
+try { window.speechSynthesis && (window.speechSynthesis.onvoiceschanged = () => { VZ_VOICE_N = -1; }); } catch (e) {}
+// texto listo para hablar: sin símbolos de formato ni emojis; en trozos de frase para que arranque rápido y suene natural
+const vzClean = (t) => String(t || "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/[*_`#>~|]/g, " ").replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, "").replace(/\s+/g, " ").trim();
+function vzChunks(t) {
+  const m = String(t).match(/[^.!?…\n]+[.!?…]*\s*/g) || [String(t)], out = []; let cur = "";
+  for (const x of m) { if (!cur || (cur + x).length < 90) cur += x; else { out.push(cur.trim()); cur = x; } }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
 const vaUseAI = () => SET.ia !== false && !VA.aiOff && navigator.onLine !== false && !!(C.S && C.S.tok);
 // frases que las reglas no entienden, o largas / con dudas, donde un «sí» o «no» suelto puede equivocarse
 function vaComplex(text, cmd) {
@@ -2255,7 +2291,7 @@ function vaCtx() {
   return { lista: VA.kind === "room" ? "un salón" : "una persona", actual: tok ? it(tok) : null, avance: { revisados: tot - pend.length, total: tot, faltan: pend.length }, siguientes: pend.slice(0, 8).map(it), tipos_en_la_lista: top(tipos, 20), areas_total_pendientes: top(areas, 12), ultimas: VA.log.slice(0, 3).map((l) => ({ marbete: String(mbOf(l.tok)), estado: l.e, condicion: l.c || "" })) };
 }
 async function vaPostIA(body) {
-  const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 9000);
+  const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), VA.kind === "chat" ? 24000 : 9000);
   try {
     const r = await fetch("/ia/voz", { method: "POST", signal: ctl.signal, headers: { "content-type": "application/json", authorization: "Bearer " + C.S.tok }, body: JSON.stringify(body) });
     VA.aiWhy = r.status;
@@ -2273,7 +2309,7 @@ async function vaAskAI(text) {
   const modo = VA.kind === "chat" ? "libre" : "revision", gen = VA.gen, t0 = Date.now();
   let body = { texto: text, modo, ctx: vaCtx() };
   for (let ronda = 0; ronda < 6; ronda++) {
-    if (gen !== VA.gen || Date.now() - t0 > 30000) return null;
+    if (gen !== VA.gen || Date.now() - t0 > 45000) return null;
     const res = await vaPostIA(body);
     if (!res) return null;
     if (res.tipo === "accion" || !res.llamadas) return res;
@@ -2401,11 +2437,19 @@ function vaChatUI(msg) {
   const c = VA.chat || { q: "", a: "" };
   card.dataset.tok = "";
   card.innerHTML = c.q || c.a || VA.thinking
-    ? `<div class="va-chat">${c.q ? `<div class="va-you">${esc(c.q)}</div>` : ""}${VA.thinking ? `<div class="va-ai think">${ic("spark")}<span>${esc(VA.got || "Pensando…")}</span></div>` : c.a ? `<div class="va-ai">${esc(c.a)}</div>` : ""}</div>`
+    ? `<div class="va-chat">${c.q ? `<div class="va-you">${esc(c.q)}</div>` : ""}${VA.thinking ? `<div class="va-ai think">${ic("spark")}<span>${esc(VA.got || "Pensando…")}</span></div>` : c.a ? `<div class="va-ai">${esc(vzClean(c.a))}</div>` : ""}</div>`
     : `<div class="va-chat"><div class="va-ai">Soy Lua. Pregúntame lo que quieras.</div><div class="va-ex">Por ejemplo: «¿cuántas sillas hay?», «marca que el 730390 no está», «propón la baja de ese monitor», «¿cómo finalizo un inventario?» o cuéntame un chiste.</div></div>`;
   vaEar(msg);
 }
-function vaChatSay(txt) { VA.chat.a = txt; (VA.chat.hist = VA.chat.hist || []).push({ persona: String(VA.chat.q || "").slice(0, 200), tu: String(txt || "").slice(0, 300) }); VA.chat.hist = VA.chat.hist.slice(-6); vaUI(); vaSay(txt, vaListen); }
+function vaChatType(v) { // pregunta escrita: calla a Lua y se procesa igual que una dicha
+  VA.sayId++; try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {} VA.speaking = false; vaStopRec(); VA.heard = ""; VA.lastT = "";
+  vaChatHear(v);
+}
+function vaChatStop() { // «Callar»: deja de hablar y se pone a escuchar
+  if (VA.thinking) return;
+  VA.sayId++; try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {} VA.speaking = false; vaUI(); if (!VA.typing) vaListen();
+}
+function vaChatSay(txt) { VA.chat.a = txt; (VA.chat.hist = VA.chat.hist || []).push({ persona: String(VA.chat.q || "").slice(0, 200), tu: String(txt || "").slice(0, 500) }); VA.chat.hist = VA.chat.hist.slice(-6); vaUI(); vaSay(txt, vaListen); }
 function vaChatHear(text) {
   const t = vnorm(text), n = t ? t.split(" ").length : 0;
   VA.got = "";
@@ -2509,20 +2553,24 @@ function vaGreet() {
 }
 function vaChatOpen() {
   if (VA.on) return;
-  if (!SRC) { snack("Este navegador no entiende la voz. Usa Chrome en el celular.", { icon: "mic" }); return; }
   if (!vaUseAI()) { snack(navigator.onLine === false ? "Sin internet no puedo conversar. Intenta cuando tengas señal." : "Activa «Voz con inteligencia artificial» en Más.", { icon: "mic" }); return; }
-  Object.assign(VA, { on: true, kind: "chat", ctx: "", list: [], i: 0, paused: false, finished: false, quiet: 0, bad: 0, log: [], area: "", heard: "", got: "", done: 0, note: "", mic: true, thinking: false, confirm: null, aiFail: 0, aiOff: false, aiWhy: 0, lastT: "", lastAt: 0, said: "", chat: { q: "", a: "" } });
+  Object.assign(VA, { on: true, kind: "chat", ctx: "", list: [], i: 0, paused: false, finished: false, quiet: 0, bad: 0, log: [], area: "", heard: "", got: "", done: 0, note: "", mic: !!SRC, typing: false, thinking: false, confirm: null, aiFail: 0, aiOff: false, aiWhy: 0, lastT: "", lastAt: 0, said: "", chat: { q: "", a: "" } });
   VA.gen++;
   let el = $("asst"); if (!el) { el = document.createElement("div"); el.id = "asst"; el.className = "asst"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Asistente Lua"); document.body.appendChild(el); }
   el.hidden = false;
   el.innerHTML = `<div class="va-top"><button class="gb" type="button" data-act="vaclose" aria-label="Cerrar la conversación">${ic("x")}</button><div class="g-t"><b>Lua</b><small>Tu asistente del inventario</small></div><span class="gb ghost" aria-hidden="true"></span></div>
     <div class="va-stage"><div class="va-card chat" id="vaCard"></div><div class="va-ear" id="vaEar" aria-live="polite"></div></div>
-    <div class="va-sec"><button type="button" data-act="varep">${ic("sound")}<span>Repetir</span></button><button type="button" data-act="vapause" id="vaPz">${ic("mic")}<span>Pausa</span></button></div>`;
+    <form class="va-form" id="vaForm" autocomplete="off"><input id="vaTxt" type="text" enterkeyhint="send" autocapitalize="sentences" placeholder="Escribe tu pregunta…" aria-label="Escribe tu pregunta para Lua" maxlength="400"><button type="submit" class="va-send" aria-label="Enviar">${ic("arrow")}</button></form>
+    <div class="va-sec"><button type="button" data-act="varep">${ic("sound")}<span>Repetir</span></button><button type="button" data-act="vastop">${ic("x")}<span>Callar</span></button>${SRC ? `<button type="button" data-act="vapause" id="vaPz">${ic("mic")}<span>Pausa</span></button>` : ""}</div>`;
+  const tx = el.querySelector("#vaTxt");
+  el.querySelector("#vaForm").onsubmit = (e) => { e.preventDefault(); const v = tx.value.trim(); if (!v || VA.thinking) return; tx.value = ""; vaChatType(v); };
+  tx.onfocus = () => { VA.typing = true; vaStopRec(); vaUI(); };
+  tx.onblur = () => { VA.typing = false; setTimeout(() => { if (VA.on && VA.kind === "chat" && !VA.thinking && !VA.speaking && !VA.paused) vaListen(); }, 350); };
   pushLayer("asst", vaClose);
   FX.unlock(); FX.hit("whoosh");
   (async () => { try { VA.wake = await navigator.wakeLock?.request("screen"); } catch (e) { VA.wake = null; } })();
   vaUI();
-  const g = vaGreet(); VA.chat.a = g; vaUI(); vaSay(g, vaListen);
+  let g = vaGreet(); if (!SRC) { g += " Aquí no puedo escucharte, así que escríbeme abajo."; VA.note = IOS && standalone() ? "En iPhone, la app instalada no deja usar el micrófono. Ábrela desde Safari para hablar; aquí puedes escribir." : ""; } VA.chat.a = g; vaUI(VA.note || ""); vaSay(g, vaListen);
 }
 function vaClose() {
   dropLayer("asst");
@@ -2536,9 +2584,9 @@ function vaClose() {
 function vaEar(msg) {
   const ear = $("vaEar");
   const state = VA.paused ? "pause" : VA.speaking ? "say" : VA.listening ? "listen" : "wait";
-  const label = { pause: "En pausa", say: "Preguntando…", listen: "Te escucho", wait: VA.thinking ? "Pensando…" : VA.mic === false ? "Responde con los botones" : "Un momento…" }[state];
+  const label = { pause: "En pausa", say: "Preguntando…", listen: "Te escucho", wait: VA.thinking ? "Pensando…" : VA.mic === false ? (VA.kind === "chat" ? "Escribe tu pregunta" : "Responde con los botones") : "Un momento…" }[state];
   ear.className = "va-ear " + state;
-  ear.innerHTML = `<i class="vp" aria-hidden="true"></i><div><b>${label}</b>${VA.heard ? `<span>Escuché: «${esc(VA.heard)}»${VA.got ? " → <strong>" + esc(VA.got) + "</strong>" : ""}</span>` : `<span>${VA.mic === false ? "Esta pantalla también funciona sin voz." : (VA.kind === "chat" ? "Pregunta lo que quieras" : "Di «sí», «no» o «siguiente»")}</span>`}${msg ? `<span class="va-msg">${esc(msg)}</span>` : ""}</div>`;
+  ear.innerHTML = `<i class="vp" aria-hidden="true"></i><div><b>${label}</b>${VA.heard ? `<span>Escuché: «${esc(VA.heard)}»${VA.got ? " → <strong>" + esc(VA.got) + "</strong>" : ""}</span>` : `<span>${VA.mic === false ? (VA.kind === "chat" ? "Escribe abajo y te contesto en voz alta." : "Esta pantalla también funciona sin voz.") : (VA.kind === "chat" ? "Pregunta lo que quieras" : "Di «sí», «no» o «siguiente»")}</span>`}${msg ? `<span class="va-msg">${esc(msg)}</span>` : ""}</div>`;
   const pz = $("vaPz"); if (pz) { pz.innerHTML = VA.paused ? ic("mic") + "<span>Seguir</span>" : ic("pause") + "<span>Pausa</span>"; pz.dataset.act = VA.paused ? "varesume" : "vapause"; }
 }
 function vaUI(msg) {
@@ -2572,6 +2620,7 @@ Object.assign(A, {
   vaskip: () => vaTap(() => { if (vaPend().length > 1) { VA.i = (VA.i + 1) % VA.list.length; VA.got = "Para después"; vaAsk("Lo dejo para después."); } else vaAsk(""); }),
   varep: () => vaTap(() => { if (VA.kind === "chat") { vaSay(VA.chat.a || "Todavía no he dicho nada.", vaListen); return; } VA.area = ""; vaAsk(""); }),
   vachat: () => vaChatOpen(),
+  vastop: () => vaChatStop(),
   bajas: () => { const f = () => { if (U.view !== "bajas") go("bajas"); }; if ($("sheet").open) closeThen("sheet", f); else f(); },
   bjtab: (el) => { U.bt = el.dataset.k; FX.hit("tap"); VIEWS.bajas.draw(true); },
   bjitem: (el) => bajaSheet(el.dataset.tok),
@@ -2735,5 +2784,5 @@ try { history.replaceState({ l: 0 }, ""); } catch (e) {}
   await C.start();
   if (wantScan && S.inv) setTimeout(() => openScan("look"), 400);
 })();
-window.__app = { bajaTxt, bajaCSV, vaTool, vaRows, VA, vaFindName, bajasData, bajaSet, bajaQuita, bajaParse, vaChatOpen, vaChatHear, vaGreet, tab, VIEWS, A, layers: () => L.map((x) => x.id), sheet, etaMins, etaTxt, DIAG, S, C, sync: C.sync, pull: C.pull, addOp: C.addOp, listFor: C.listFor, U, SET, processCode, go, G };
+window.__app = { vzClean, vzChunks, vzPickVoice, IOS, vaChatType, bajaTxt, bajaCSV, vaTool, vaRows, VA, vaFindName, bajasData, bajaSet, bajaQuita, bajaParse, vaChatOpen, vaChatHear, vaGreet, tab, VIEWS, A, layers: () => L.map((x) => x.id), sheet, etaMins, etaTxt, DIAG, S, C, sync: C.sync, pull: C.pull, addOp: C.addOp, listFor: C.listFor, U, SET, processCode, go, G };
 })();

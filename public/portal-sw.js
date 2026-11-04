@@ -1,7 +1,7 @@
 /* Portal de inventario CONALEP: permite abrir el portal sin internet con la última copia.
    Siempre intenta primero la red (así nunca se queda una versión vieja) y solo usa la copia si no hay conexión.
    No toca /api/ (datos) ni /app/ (la app de celular tiene su propio service worker). */
-const CACHE = "portal-v15";
+const CACHE = "portal-v16";
 const SHELL = ["/", "/assets/p.css", "/assets/fx.js", "/assets/qr.js", "/assets/data.js", "/assets/brain.js", "/assets/acentos.js", "/assets/firma.js", "/assets/files.js", "/assets/ui.js", "/assets/shell.js", "/assets/views.js", "/assets/ayuda-datos.js", "/assets/help.js", "/assets/logo.png",
   "/assets/fonts/BricolageGrotesque-Regular.woff", "/assets/fonts/BricolageGrotesque-Bold.woff", "/assets/fonts/BigShoulders-Bold.woff", "/assets/fonts/BigShoulders-Regular.woff"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting())); });

@@ -40,7 +40,8 @@ function readUser(req, secret) {
   }
 }
 
-const SISTEMA = `Eres "Lua", la asistente de voz de la app de inventario del CONALEP Chetumal (Servicios Administrativos). Hablas con el personal por voz, en español de México, como una compañera de trabajo lista, cálida y con buen humor: reaccionas rápido, respondes lo que te preguntan sin rodeos y, cuando viene al caso, sueltas una broma corta o un comentario simpático (nunca en temas serios, nunca forzado, nunca más de una por respuesta). Puedes platicar de cualquier cosa de forma breve, pero tu especialidad es el inventario y esta app: la conoces hasta el último detalle. Piensas por tu cuenta: si ves algo útil en los datos (muchos pendientes, artículos en mal estado, bajas por revisar), lo mencionas en una frase.
+const SISTEMA = `Eres "Lua", la asistente de voz de la app de inventario del CONALEP Chetumal (Servicios Administrativos). Hablas con el personal por voz, en español de México, como una compañera de trabajo lista, cálida y con buen humor: reaccionas rápido, respondes lo que te preguntan sin rodeos y, cuando viene al caso, sueltas una broma corta o un comentario simpático (nunca en temas serios, nunca forzado, nunca más de una por respuesta). Eres una asistente completa, como las mejores de uso general: respondes CUALQUIER pregunta o petición (conocimiento general, ciencia, historia, matemáticas y cálculos, explicaciones paso a paso, tareas escolares, redacción y corrección de textos, ideas, traducciones, consejos prácticos, cultura, tecnología, recomendaciones, juegos de palabras, etc.), razonando con cuidado antes de contestar. Tu especialidad es el inventario y esta app, que conoces hasta el último detalle.
+CÓMO HABLAS: tu respuesta se lee en voz alta, así que usa lenguaje hablado y natural: sin markdown, sin asteriscos, sin listas con viñetas, sin emojis, sin tablas ni URLs. Por defecto 2 a 4 frases. Si piden explicar, enseñar, comparar o redactar algo, o dicen "dime más", puedes extenderte (hasta unas 8 frases o 700 caracteres), ordenado con palabras como "primero", "luego", "por último". Reacciona a lo que dice la persona (si algo es gracioso, ríete; si está frustrada, sé empática). No repitas la pregunta ni digas "como asistente de IA". Si no sabes o no estás segura, dilo con franqueza y propón cómo averiguarlo; nunca inventes datos, cifras ni citas. No tienes internet ni noticias en vivo: para cosas de actualidad o que cambian (precios, clima, resultados), di que no puedes consultarlo en vivo. En temas médicos, legales o de dinero da información general útil y recomienda a un profesional cuando importe. Si una petición es dañina o peligrosa, declina con amabilidad y ofrece una alternativa. Piensas por tu cuenta: si ves algo útil en los datos (muchos pendientes, artículos en mal estado, bajas por revisar), lo mencionas en una frase.
 Recibes lo que dijo la persona (transcripción de voz: puede traer palabras cambiadas, sin acentos o con errores; interpreta la intención) y un contexto con datos. SIEMPRE respondes llamando una herramienta, una por turno.
 
 HERRAMIENTAS
@@ -56,7 +57,7 @@ HERRAMIENTAS
 2) "accion": tu respuesta final. Después de consultar, termina SIEMPRE con "accion".
 
 REGLAS DE accion
-- "responder": contesta con "decir" (máximo 3 frases cortas, sin listas largas: di lo esencial y ofrece detalle). Los números de marbete se dicen en grupos de tres (730, 390). El dinero en pesos, redondeado. Usa "responder" también para charlar, explicar la app, bromear o pedir un dato que falte.
+- "responder": contesta con "decir" (datos del inventario: lo esencial en 1 a 3 frases y ofrece detalle; preguntas generales o de explicación: lo que haga falta, con el estilo hablado indicado arriba). Los números de marbete se dicen en grupos de tres (730, 390). El dinero en pesos, redondeado. Usa "responder" también para charlar, explicar la app, bromear o pedir un dato que falte.
 - "marcar" (solo en revisión por lista): solo cuando la persona afirma o niega CLARAMENTE que el artículo ACTUAL existe. estado="si"/"no"; "condicion" B/R/M solo si la dijo; dato extra en "nota"; si dudas pon seguro=false. Si es ambiguo NO marques: pregunta con "responder".
 - Acciones de la lista de revisión (siguiente, anterior, repetir, deshacer, donde, detalles, valor, avance, pendientes, ayuda, pausa, terminar, ir_marbete, buscar, ir_area, contar, nota): solo si lo pide claramente. "terminar" y "pausa" nunca por una duda.
 - Conversación libre (puedes hacer cambios reales en el inventario):
@@ -105,7 +106,7 @@ const T_ACCION = {
       motivo: { type: "string", enum: MOTIVOS, description: "Solo para proponer_baja." },
       seccion: { type: "string", enum: SECCIONES, description: "Solo para abrir_seccion." },
       subseccion: { type: "string", enum: SUBBAJAS, description: "Solo para abrir_seccion con seccion=bajas." },
-      decir: { type: "string", description: "Lo que la app dirá en voz alta (breve)." },
+      decir: { type: "string", description: "Lo que la app dirá en voz alta, en lenguaje hablado, sin formato." },
     },
     required: ["accion"],
   },
@@ -168,7 +169,7 @@ export function sanea(inp, modo = "revision") {
   }
   if (inp.nota) o.nota = limpia(inp.nota, 300);
   if (inp.accion === "nota" && !o.nota) return null;
-  if (inp.decir) o.decir = limpia(inp.decir, 400);
+  if (inp.decir) o.decir = limpia(inp.decir, modo === "libre" ? 900 : 400);
   if (inp.accion === "responder" && !o.decir) return null;
   return o;
 }
@@ -246,11 +247,11 @@ async function limite(store, usuario) {
 
 async function modelo(client, messages, modo, forzar) {
   let ultimo;
-  for (const model of MODELOS) {
+  for (const model of (modo === "libre" ? [process.env.VOZ_MODELO_LIBRE, ...MODELOS] : MODELOS).filter(Boolean)) {
     try {
       const r = await client.messages.create({
         model,
-        max_tokens: 600,
+        max_tokens: modo === "libre" ? 1000 : 500,
         system: [{ type: "text", text: SISTEMA + (modo === "libre" ? MODO_LIBRE : MODO_REV), cache_control: { type: "ephemeral" } }],
         tools: [T_CONSULTA, T_ACCION],
         tool_choice: forzar ? { type: "tool", name: "accion" } : { type: "any", disable_parallel_tool_use: true },
@@ -307,7 +308,7 @@ export async function handle(req, deps = {}) {
     try {
       const mod = await import("@anthropic-ai/sdk");
       const Anthropic = mod.default || mod.Anthropic;
-      client = new Anthropic({ timeout: 12000, maxRetries: 1 });
+      client = new Anthropic({ timeout: 22000, maxRetries: 1 });
     } catch (e) {
       console.error("ia sdk", e && e.message);
       return fail(503, "ia_off", "La IA aún no está activa en este sitio.");
