@@ -2258,12 +2258,15 @@ async function vaPostIA(body) {
   const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 9000);
   try {
     const r = await fetch("/ia/voz", { method: "POST", signal: ctl.signal, headers: { "content-type": "application/json", authorization: "Bearer " + C.S.tok }, body: JSON.stringify(body) });
+    VA.aiWhy = r.status;
     if (r.status === 503) { VA.aiOff = true; return null; }
     if (r.status === 429) { VA.aiOff = true; vaUI("Se llegó al límite diario de la IA. Sigo con lo básico."); return null; }
+    if (r.status === 401) { VA.aiWhy = 401; return null; }
+    if (r.status === 404 || r.status === 405) { VA.aiOff = true; return null; }
     if (!r.ok) { if (++VA.aiFail >= 3) VA.aiOff = true; return null; }
     VA.aiFail = 0;
     return await r.json();
-  } catch (e) { if (++VA.aiFail >= 3) VA.aiOff = true; return null; } finally { clearTimeout(tm); }
+  } catch (e) { VA.aiWhy = e && e.name === "AbortError" ? "lento" : "red"; if (++VA.aiFail >= 3) VA.aiOff = true; return null; } finally { clearTimeout(tm); }
 }
 // pregunta a la IA; si necesita datos, pide consultas, las ejecutamos aquí con TODO el inventario y se las devolvemos
 async function vaAskAI(text) {
@@ -2280,6 +2283,15 @@ async function vaAskAI(text) {
   }
   return null;
 }
+function vaAiWhy() {
+  const w = VA.aiWhy;
+  if (w === 503 || w === 404 || w === 405) return "Tengo internet, pero la IA todavía no está activa en el sitio. Hay que subir ia.mjs y package.json y publicar una vez en Netlify.";
+  if (w === 401) return "Tu sesión venció. Cierra sesión y entra de nuevo.";
+  if (w === 429) return "Ya se llegó al límite diario de la IA. Mañana vuelve a funcionar.";
+  if (w === "lento") return "La IA tardó demasiado en responder. Inténtalo otra vez.";
+  if (navigator.onLine === false) return "No hay internet en este momento.";
+  return "No pude conectar con la IA. Inténtalo otra vez en un momento.";
+}
 async function vaThink(text, local) {
   const gen = VA.gen; VA.thinking = true; VA.got = "";
   if (VA.kind === "chat") { VA.chat.q = text.slice(0, 200); VA.chat.a = ""; }
@@ -2288,7 +2300,7 @@ async function vaThink(text, local) {
   VA.thinking = false;
   if (gen !== VA.gen || !VA.on || VA.paused) return; // mientras pensaba tocaste un botón, pausaste o cerraste
   if (!res) {
-    if (VA.kind === "chat") { const t = "No pude conectar con la IA. Revisa tu internet e inténtalo de nuevo."; VA.chat.a = t; vaUI(); vaSay(t, vaListen); return; }
+    if (VA.kind === "chat") { const t = vaAiWhy(); VA.chat.a = t; vaUI(); vaSay(t, vaListen); return; }
     if (local) vaRun(local); else vaUnknown();
     return;
   }
@@ -2390,7 +2402,7 @@ function vaChatUI(msg) {
   card.dataset.tok = "";
   card.innerHTML = c.q || c.a || VA.thinking
     ? `<div class="va-chat">${c.q ? `<div class="va-you">${esc(c.q)}</div>` : ""}${VA.thinking ? `<div class="va-ai think">${ic("spark")}<span>${esc(VA.got || "Pensando…")}</span></div>` : c.a ? `<div class="va-ai">${esc(c.a)}</div>` : ""}</div>`
-    : `<div class="va-chat"><div class="va-ai">Soy Conny. Pregúntame lo que quieras.</div><div class="va-ex">Por ejemplo: «¿cuántas sillas hay?», «marca que el 730390 no está», «propón la baja de ese monitor», «¿cómo finalizo un inventario?» o cuéntame un chiste.</div></div>`;
+    : `<div class="va-chat"><div class="va-ai">Soy Lua. Pregúntame lo que quieras.</div><div class="va-ex">Por ejemplo: «¿cuántas sillas hay?», «marca que el 730390 no está», «propón la baja de ese monitor», «¿cómo finalizo un inventario?» o cuéntame un chiste.</div></div>`;
   vaEar(msg);
 }
 function vaChatSay(txt) { VA.chat.a = txt; (VA.chat.hist = VA.chat.hist || []).push({ persona: String(VA.chat.q || "").slice(0, 200), tu: String(txt || "").slice(0, 300) }); VA.chat.hist = VA.chat.hist.slice(-6); vaUI(); vaSay(txt, vaListen); }
@@ -2405,7 +2417,7 @@ function vaChatHear(text) {
     if (/\b(si|sip|claro|dale|hazlo|confirmo|confirmado|correcto|exacto|ok|okey|va|adelante|por favor)\b/.test(t) && !/\b(no|nel|nunca)\b/.test(t)) { p(); return; }
     if (/\b(no|nel|cancela|cancelalo|mejor no|olvidalo|detente)\b/.test(t)) { vaChatSay("Va, no hago nada."); return; }
   }
-  if (!vaUseAI()) { vaChatSay("Para contestar necesito internet y que esté activada la voz con inteligencia artificial, en Más."); return; }
+  if (!vaUseAI()) { vaChatSay(SET.ia === false ? "Activa «Voz con inteligencia artificial» en Más para que pueda contestar." : VA.aiOff ? vaAiWhy() : "No hay internet en este momento."); return; }
   vaThink(text, null);
 }
 // nombre exacto (persona o salón) a partir de lo que dijo la IA; si hay varios parecidos, se pregunta
@@ -2493,17 +2505,17 @@ function vaGreet() {
   const bits = [];
   if (pen > 0) bits.push("llevamos " + fmtN(t.rev) + " revisados y faltan " + fmtN(pen)); else bits.push("ya está todo revisado");
   if (bj.prop.length) bits.push("hay " + bj.prop.length + (bj.prop.length === 1 ? " baja propuesta" : " bajas propuestas"));
-  return "Hola " + n + ", soy Conny. " + (bits.length ? "Por cierto, " + bits.join(" y ") + ". " : "") + "¿En qué te ayudo?";
+  return "Hola " + n + ", soy Lua. " + (bits.length ? "Por cierto, " + bits.join(" y ") + ". " : "") + "¿En qué te ayudo?";
 }
 function vaChatOpen() {
   if (VA.on) return;
   if (!SRC) { snack("Este navegador no entiende la voz. Usa Chrome en el celular.", { icon: "mic" }); return; }
   if (!vaUseAI()) { snack(navigator.onLine === false ? "Sin internet no puedo conversar. Intenta cuando tengas señal." : "Activa «Voz con inteligencia artificial» en Más.", { icon: "mic" }); return; }
-  Object.assign(VA, { on: true, kind: "chat", ctx: "", list: [], i: 0, paused: false, finished: false, quiet: 0, bad: 0, log: [], area: "", heard: "", got: "", done: 0, note: "", mic: true, thinking: false, confirm: null, aiFail: 0, lastT: "", lastAt: 0, said: "", chat: { q: "", a: "" } });
+  Object.assign(VA, { on: true, kind: "chat", ctx: "", list: [], i: 0, paused: false, finished: false, quiet: 0, bad: 0, log: [], area: "", heard: "", got: "", done: 0, note: "", mic: true, thinking: false, confirm: null, aiFail: 0, aiOff: false, aiWhy: 0, lastT: "", lastAt: 0, said: "", chat: { q: "", a: "" } });
   VA.gen++;
-  let el = $("asst"); if (!el) { el = document.createElement("div"); el.id = "asst"; el.className = "asst"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Asistente Conny"); document.body.appendChild(el); }
+  let el = $("asst"); if (!el) { el = document.createElement("div"); el.id = "asst"; el.className = "asst"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Asistente Lua"); document.body.appendChild(el); }
   el.hidden = false;
-  el.innerHTML = `<div class="va-top"><button class="gb" type="button" data-act="vaclose" aria-label="Cerrar la conversación">${ic("x")}</button><div class="g-t"><b>Conny</b><small>Tu asistente del inventario</small></div><span class="gb ghost" aria-hidden="true"></span></div>
+  el.innerHTML = `<div class="va-top"><button class="gb" type="button" data-act="vaclose" aria-label="Cerrar la conversación">${ic("x")}</button><div class="g-t"><b>Lua</b><small>Tu asistente del inventario</small></div><span class="gb ghost" aria-hidden="true"></span></div>
     <div class="va-stage"><div class="va-card chat" id="vaCard"></div><div class="va-ear" id="vaEar" aria-live="polite"></div></div>
     <div class="va-sec"><button type="button" data-act="varep">${ic("sound")}<span>Repetir</span></button><button type="button" data-act="vapause" id="vaPz">${ic("mic")}<span>Pausa</span></button></div>`;
   pushLayer("asst", vaClose);

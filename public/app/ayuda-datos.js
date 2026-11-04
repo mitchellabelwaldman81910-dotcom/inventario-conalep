@@ -66,7 +66,7 @@ window.AYUDA = {
       tips: ["Escuchar solo funciona en <b>Chrome</b> (Android y computadora) y necesita internet. En otros navegadores la app igual te pregunta en voz alta y contestas con los botones.", "En lugares con ruido funciona peor: habla cerca del teléfono, normal, después de que termine la pregunta.", "Dentro de <b>Revisar uno por uno</b> sigue el micrófono de arriba para leer los bienes en voz alta."],
     },
     {
-      id: "conny", i: "mic", t: "Conny: la asistente por voz",
+      id: "conny", i: "mic", t: "Lua: la asistente por voz",
       q: "Platica con ella, pregúntale lo que quieras del inventario y pídele que marque artículos.",
       kw: "conny asistente voz inteligencia artificial ia hablar preguntar platicar chiste marcar baja cuantos quien tiene cuanto vale conversacion microfono",
       pasos: [
@@ -92,7 +92,7 @@ window.AYUDA = {
         "<b>Buscar:</b> cualquier artículo por marbete, descripción o persona. También puedes tocar <b>Proponer baja de este bien</b> en la ficha de cualquier bien.",
         "Al proponer eliges el <b>motivo</b>: dañado sin reparación, obsoleto, desecho o inservible, robo o extravío, donación o entrega, u otro; y puedes escribir un detalle."
       ],
-      tips: ["Proponer una baja <b>no la tramita</b>: deja constancia en las observaciones del bien (empiezan con «BAJA ·») y viaja al portal con tu revisión. La baja oficial se hace fuera de la app.", "Robo o extravío deja el bien como <b>No está</b>; los demás motivos lo dejan como <b>Presente</b> en mal estado (si no lo habías marcado).", "También se hace por voz con Conny: «propón la baja del 730390 por daño»."]
+      tips: ["Proponer una baja <b>no la tramita</b>: deja constancia en las observaciones del bien (empiezan con «BAJA ·») y viaja al portal con tu revisión. La baja oficial se hace fuera de la app.", "Robo o extravío deja el bien como <b>No está</b>; los demás motivos lo dejan como <b>Presente</b> en mal estado (si no lo habías marcado).", "También se hace por voz con Lua: «propón la baja del 730390 por daño»."]
     },
     {
       id: "salon", i: "pin", t: "Revisar por salón",
