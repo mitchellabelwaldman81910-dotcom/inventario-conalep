@@ -1855,32 +1855,89 @@ function vaSpokenMb(tok) {
   return mb.split("").join(" ");
 }
 function vaDesc(tok) { let d = String(descOf(tok) || "").replace(/\s+/g, " ").trim(); if (d.length > 70) d = d.slice(0, 70).replace(/\s+\S*$/, ""); return d.toLowerCase(); }
-function vaParse(txt) {
-  const t = vnorm(txt); if (!t) return null;
-  const w = t.split(" "), ph = " " + t + " ", has = (...a) => a.some((x) => (x.includes(" ") ? ph.includes(" " + x + " ") : w.includes(x)));
-  const nm = t.match(/^(nota|anota|observacion|observaciones|apunta)\s+(.+)$/); if (nm) return { k: "note", note: nm[2] };
-  const digits = t.replace(/[^0-9 ]/g, " ").trim(), joined = digits.replace(/\s+/g, "");
-  if (joined.length >= 4 && joined.length <= 8 && (has("ve", "ir", "busca", "buscar", "marbete", "brinca", "salta a", "vamos al") || /^[0-9 ]+$/.test(t))) return { k: "goto", mb: joined };
-  if (has("pausa", "detente", "deten", "alto", "espera", "esperate", "silencio", "para", "callate")) return { k: "pause" };
-  if (has("termina", "terminar", "finaliza", "finalizar", "ya acabe", "ya termine", "salir", "cierra", "cerrar")) return { k: "end" };
-  if (has("deshaz", "deshacer", "corrige", "corregir", "me equivoque", "equivocacion", "borra", "quita la marca")) return { k: "undo" };
-  if (has("ayuda", "que puedo decir", "opciones", "comandos", "como funciona")) return { k: "help" };
-  if (has("cuantos", "cuantas", "cuanto", "llevo", "faltan", "avance", "progreso", "cuantos quedan")) return { k: "progress" };
-  if (has("donde", "que area", "en que lugar", "ubicacion", "en que salon")) return { k: "where" };
-  if (has("detalles", "detalle", "descripcion", "que es", "mas informacion", "datos", "marca", "modelo", "serie", "describe", "describelo")) return { k: "details" };
-  if (has("repite", "repetir", "repitelo", "otra vez", "de nuevo", "no escuche", "no te escuche", "cual", "como dijiste", "mande", "perdon")) return { k: "repeat" };
-  if (has("anterior", "atras", "regresa", "regresar", "el de antes", "vuelve", "retrocede")) return { k: "prev" };
-  if (has("no se", "no lo se", "luego lo busco", "lo busco", "despues", "luego", "siguiente", "salta", "saltar", "saltalo", "otro", "pasa", "pasale", "omite", "omitir", "todavia no se", "mas tarde")) {
-    if (!has("no se encuentra", "no se ve")) return { k: "skip" };
+/* @@VZ-BEGIN */
+// v13: lenguaje natural para la revisión por voz. Entiende números dictados («siete tres cero… » = 730…),
+// cientos de formas de decir sí, no y el estado del artículo, tolera errores del reconocedor («encontre» ~ «encontré»)
+// y recuerda lo último que se respondió («lo mismo», «el mismo estado»). Es una función pura: no toca la pantalla.
+const VZ_DIG = { cero: "0", uno: "1", dos: "2", tres: "3", cuatro: "4", cinco: "5", seis: "6", siete: "7", ocho: "8", nueve: "9" };
+const VZ_STOP = new Set("el la los las un una unos unas de del al a en y o que por para con su sus mi me se lo le les es hay ya no si aqui ahi esta este esa ese lista articulo articulos bien bienes".split(" "));
+const VZ_QSTOP = new Set([...VZ_STOP, "cuantos", "cuantas", "cuanto", "cuanta", "faltan", "falta", "quedan", "queda", "llevo", "llevamos", "tengo", "tienen", "tiene", "son", "por", "revisar", "revisado", "revisados", "pendientes", "pendiente", "dime", "dame", "cuales", "cual", "muestrame", "busca", "buscar", "encuentra"]);
+function vzLev(a, b) { // distancia de edición (0 = igual, 1 = una letra de diferencia)
+  if (a === b) return 0; if (Math.abs(a.length - b.length) > 1) return 2;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) { const cur = [i]; for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; }
+  return prev[b.length];
+}
+// ¿la frase normalizada trae x? Una palabra suelta de 5 letras o más tolera una letra de error.
+function vzHas(T, ws, x) {
+  if (x.includes(" ")) return (" " + T + " ").includes(" " + x + " ");
+  if (ws.includes(x)) return true;
+  return x.length >= 5 && ws.some((z) => z.length >= 5 && vzLev(z, x) <= 1);
+}
+// ¿el texto del artículo (hay) incluye las palabras de q? (el orden no importa; «silla» ~ «sillas»)
+function vzMatch(hay, q) {
+  const hw = String(hay || "").split(" ");
+  return String(q || "").split(" ").filter((x) => x.length > 1 && !VZ_STOP.has(x)).every((x) => hw.some((h) => h === x || h.startsWith(x) || (x.length >= 5 && h.length >= 5 && vzLev(h, x) <= 1)));
+}
+const VZ_BAD = ["malo", "mala", "malos", "malas", "roto", "rota", "rotos", "rotas", "danado", "danada", "danados", "danadas", "descompuesto", "descompuesta", "no sirve", "no sirven", "no funciona", "no funcionan", "no prende", "no enciende", "deteriorado", "deteriorada", "quebrado", "quebrada", "estropeado", "estropeada", "averiado", "averiada", "cojo", "cojea", "sin pata", "sin patas", "rayado", "rayada", "abollado", "abollada", "oxidado", "oxidada", "sucio", "sucia", "pesimo", "pesima", "fatal", "terrible", "hecho pedazos", "se rompio", "partido", "partida", "muerto", "muerta", "pedazos", "se cayo", "tirado", "tirada", "no jala", "no sirve nada"];
+const VZ_REG = ["regular", "regulares", "mas o menos", "maso", "desgastado", "desgastada", "gastado", "gastada", "viejo", "vieja", "usado", "usada", "algo gastado", "bastante usado", "con detalles", "a medias", "medio", "funciona a medias", "le falla un poco", "algo roto"];
+const VZ_GOOD = ["bueno", "buena", "buenos", "buenas", "buen estado", "perfecto", "perfecta", "excelente", "nuevo", "nueva", "nuevos", "limpio", "limpia", "como nuevo", "funciona", "funciona bien", "en orden", "buenas condiciones", "sirve", "bien conservado", "conservado", "impecable", "muy bien", "bien", "en buen estado", "esta bien"];
+const VZ_ABSENT = ["no esta", "no se encuentra", "no se encontro", "no se ve", "no lo veo", "no la veo", "no lo encuentro", "no la encuentro", "no lo encontre", "no la encontre", "no hay", "no aparece", "no existe", "falta", "faltante", "ausente", "perdido", "perdida", "extraviado", "extraviada", "robado", "robada", "se lo llevaron", "se la llevaron", "no esta aqui", "no esta ahi", "ya no esta", "se perdio", "no lo tengo", "no la tengo", "no tenemos", "no tengo", "tampoco", "nop", "nel", "negativo", "no aparecio", "no sale", "no se halla", "no lo hallo", "no la hallo", "desaparecido", "desaparecida", "no esta en su lugar"];
+const VZ_YES = ["si", "sii", "siii", "aja", "ajá", "afirmativo", "correcto", "exacto", "claro", "simon", "ok", "okay", "listo", "lista", "ya", "aqui", "ahi", "presente", "esta", "lo tengo", "la tengo", "lo veo", "la veo", "se encuentra", "encontrado", "encontrada", "existe", "aparece", "lo encontre", "la encontre", "aqui esta", "ahi esta", "si esta", "si aparece", "perfecto", "yep", "sip", "asi es", "por supuesto", "confirmo", "confirmado", "de acuerdo", "va", "vale", "sale", "dale", "yes", "si hay", "hay", "aqui lo tengo", "aqui la tengo", "ya lo vi", "ya la vi", "esta aqui", "esta ahi", "si lo tengo", "si la tengo", "si se encuentra", "lo encontre aqui", "encontre", "hallado", "hallada", "lo hallo", "la hallo", "aparecio", "lo encuentro aqui", "si lo encuentro", "aqui esta lo encontre"];
+function vaParse(txt, ctx) {
+  ctx = ctx || {};
+  const base = vnorm(txt); if (!base) return null;
+  // «doble cero», «triple tres» → dígitos repetidos; dígitos dictados → «7 3 0»
+  const src = base.split(" "), toks = [];
+  for (let i = 0; i < src.length; i++) {
+    const x = src[i];
+    if ((x === "doble" || x === "triple") && VZ_DIG[src[i + 1]] !== undefined) { const d = VZ_DIG[src[i + 1]]; for (let k = 0; k < (x === "doble" ? 2 : 3); k++) toks.push(d); i++; continue; }
+    toks.push(VZ_DIG[x] !== undefined ? VZ_DIG[x] : x);
   }
-  const c = has("malo", "mala", "roto", "rota", "danado", "danada", "descompuesto", "descompuesta", "no sirve", "no funciona", "deteriorado", "deteriorada", "quebrado", "quebrada", "estropeado") ? "M"
-    : has("regular", "mas o menos", "maso", "desgastado", "desgastada", "gastado", "viejo", "vieja") ? "R"
-    : has("bueno", "buena", "buen estado", "perfecto", "excelente", "nuevo", "nueva") ? "B" : "";
-  const absent = has("no esta", "no se encuentra", "no lo veo", "no la veo", "no lo encuentro", "no la encuentro", "no hay", "no aparece", "no existe", "falta", "faltante", "ausente", "perdido", "perdida", "extraviado", "extraviada", "negativo", "tampoco", "nop", "nel") || (w[0] === "no" && !c);
+  const T = toks.join(" "), w = toks, has = (...a) => a.some((x) => vzHas(T, w, x)), ph = " " + T + " ";
+  // número: la racha de dígitos más larga (4 a 8) es un marbete
+  let best = "", cur = "";
+  for (const x of toks) { if (/^\d+$/.test(x)) { cur += x; if (cur.length > best.length) best = cur; } else cur = ""; }
+  const onlyDigits = /^\d+$/.test(T.replace(/ /g, ""));
+  if (best.length >= 4 && best.length <= 8 && (onlyDigits || has("ve", "ir", "busca", "marbete", "brinca", "salta", "vamos", "numero", "al", "el", "dame", "muestra", "ponte", "pasa"))) return { k: "goto", mb: best };
+  // notas dictadas
+  const nm = txt.match(/^\s*(?:nota|notas|anota|anotar|apunta|apuntar|observacion|observaciones|escribe|escribir|anota que|nota que)\s*:?\s+(?:que\s+)?(.+)$/i);
+  if (nm) return { k: "note", note: nm[1].trim() };
+  if (has("ayuda", "ayudame", "que puedo decir", "que puedo decirte", "opciones", "comandos", "como funciona", "que entiendes", "que sabes", "instrucciones", "que dices", "que se decir", "como te hablo")) return { k: "help" };
+  if (has("pausa", "pausar", "detente", "alto", "espera", "esperate", "silencio", "callate", "para ya", "un momento", "momento")) return { k: "pause" };
+  if (has("termina", "terminar", "terminamos", "finaliza", "finalizar", "ya acabe", "ya termine", "ya termine todo", "salir", "cierra", "cerrar", "ya es todo", "eso es todo", "hasta aqui", "basta", "fin", "ya casi acabo")) return { k: "end" };
+  if (has("deshaz", "deshacer", "corrige", "corregir", "me equivoque", "equivocacion", "borra", "quita la marca", "no era", "regresalo", "quitalo", "cancela", "cancelar")) return { k: "undo" };
+  // buscar por palabras dentro de la lista: «busca la silla», «encuentra monitor»
+  const fm = T.match(/^(?:busca|buscar|buscame|encuentra|encuentrame|localiza|localizar|ve a buscar|quiero buscar|donde esta la|donde esta el)\s+(.+)$/);
+  if (fm) { const q = fm[1].split(" ").filter((x) => !VZ_QSTOP.has(x) || x.length > 3).join(" ").trim(); if (q) return { k: "find", q }; }
+  // ir a un área: «ve al área de sistemas», «estamos en biblioteca», «pasa a la oficina de finanzas»
+  const am = T.match(/^(?:ve|vamos|pasa|pasar|cambia|cambiate|ir|estamos|estoy|pasemos|llevame|llevame a|ve a)\s+(?:al |a la |a las |a los |a el |a |en el |en la |en )?(?:area|areas|salon|oficina|edificio|bodega|taller|laboratorio|aula|sala|departamento)?\s*(?:de |del |de la |de los |la |el )?(.+)$/);
+  if (am && am[1] && !/^\d/.test(am[1])) { const q = am[1].replace(/\b(por favor|porfa|ya)\b/g, "").trim(); if (q) return { k: "area", q }; }
+  // cuánto vale (antes que «cuántos»)
+  if (has("cuanto vale", "cuanto cuesta", "cuanto costo", "cuanto costo", "de cuanto es", "precio", "importe", "valor", "cuanto es", "cuanto valor")) return { k: "value" };
+  // cuántos/cuántas: con palabras es conteo («cuántas sillas»), sin ellas es avance
+  if (has("cuantos", "cuantas", "cuanto", "cuanta", "cuantas faltan", "cuantos faltan")) {
+    const q = T.split(" ").filter((x) => !VZ_QSTOP.has(x) && !/^\d+$/.test(x)).join(" ").trim();
+    if (q && !has("llevo", "llevamos", "avance", "progreso", "vamos")) return { k: "count", q };
+    return { k: "progress" };
+  }
+  if (has("como vamos", "como voy", "como llevamos", "avance", "progreso", "llevo", "llevamos", "cuanto falta", "que tanto falta")) return { k: "progress" };
+  if (has("cuales faltan", "cuales quedan", "que falta", "que faltan", "que me falta", "lista de pendientes", "lista pendientes", "dime los que faltan", "los que faltan", "los pendientes", "pendientes", "que sigue", "que queda")) return { k: "pendlist" };
+  if (has("donde", "que area", "en que area", "en que lugar", "ubicacion", "en que salon", "en donde", "de que area", "que salon", "en que parte", "por donde")) return { k: "where" };
+  if (has("detalles", "detalle", "descripcion", "que es", "mas informacion", "mas info", "datos", "marca", "modelo", "serie", "describe", "describelo", "dime que es", "que tiene", "como es", "que articulo", "cual es", "cual es el")) return { k: "details" };
+  if (has("repite", "repetir", "repitelo", "otra vez", "de nuevo", "no escuche", "no te escuche", "no te oi", "no oi", "no entendi", "como dijiste", "mande", "perdon", "que dijiste", "cual", "repitemelo", "dilo otra vez", "no escuché")) return { k: "repeat" };
+  if (has("anterior", "atras", "regresa", "regresar", "el de antes", "vuelve", "retrocede", "el pasado", "el previo", "al anterior", "vuelve al anterior", "el que vimos")) return { k: "prev" };
+  if (has("lo mismo", "igual que", "el mismo", "como el anterior", "igual que el anterior", "misma condicion", "mismo estado", "lo mismo que", "igual", "lo mismo de antes")) return ctx.last ? { k: "mark", e: "si", c: ctx.last } : { k: "sameNone" };
+  if (!has("no se encuentra", "no se encontro", "no se ve") && has("no se", "no lo se", "luego", "luego lo busco", "lo busco", "despues", "siguiente", "salta", "saltar", "saltalo", "saltate", "otro", "otra", "pasa", "pasale", "omite", "omitir", "mas tarde", "ahorita no", "al siguiente", "dejalo", "ahorita", "en otro momento", "al rato", "no ahorita")) return { k: "skip" };
+  // estado del artículo
+  const cBad = VZ_BAD.some((x) => vzHas(T, w, x)), cReg = VZ_REG.some((x) => vzHas(T, w, x)), cGood = VZ_GOOD.some((x) => vzHas(T, w, x));
+  const c = cBad ? "M" : cReg ? "R" : cGood ? "B" : "";
+  const absent = VZ_ABSENT.some((x) => vzHas(T, w, x)) || (w[0] === "no" && !c);
   if (absent) return { k: "mark", e: "no" };
-  if (c || has("si", "esta", "aqui", "presente", "lo tengo", "la tengo", "lo veo", "la veo", "se encuentra", "correcto", "afirmativo", "ok", "okay", "listo", "claro", "exacto", "ya", "simon", "aja", "encontrado", "existe")) return { k: "mark", e: "si", c };
+  if (c || VZ_YES.some((x) => vzHas(T, w, x))) return { k: "mark", e: "si", c };
   return null;
 }
+/* @@VZ-END */
 /* ---------- habla y escucha ---------- */
 function vaSay(txt, done) {
   const ss = window.speechSynthesis, my = ++VA.sayId;
@@ -1956,9 +2013,10 @@ function vaUndo() {
   VA.i = Math.max(0, VA.list.indexOf(l.tok)); VA.done = Math.max(0, VA.done - 1); VA.area = "";
   VA.got = "Deshecho"; FX.hit("undo"); vaAsk("Deshecho.");
 }
+function vaMatchTok(t2, q) { return vzMatch(vnorm(vaDesc(t2) + " " + (areaOf(t2) || "") + " " + (metaOf(t2) || "") + " " + String(mbOf(t2))), q); }
 function vaHear(alts) {
   VA.heard = (alts[0] || "").slice(0, 80);
-  let cmd = null; for (const a of alts) { cmd = vaParse(a); if (cmd) break; }
+  let cmd = null; const cx = { last: VA.log[0] ? VA.log[0].c || "" : "" }; for (const a of alts) { cmd = vaParse(a, cx); if (cmd) break; }
   const tok = vaTok();
   if (!cmd) {
     VA.bad++; VA.got = ""; vaUI();
@@ -1976,10 +2034,16 @@ function vaHear(alts) {
     case "where": { const ar = tok ? areaOf(tok) : ""; VA.got = ""; S2(ar ? "Está registrado en " + scase(ar).toLowerCase() + ". ¿Se encuentra?" : "No tiene área registrada. ¿Se encuentra?"); return; }
     case "details": { if (!tok) return; const m = metaOf(tok), r = C.row(tok), imp = cell(r, K.IM); VA.got = ""; S2(vaDesc(tok) + ". " + (m ? m.replace(/·/g, ",") + ". " : "Sin marca ni serie registradas. ") + (imp ? "Valor " + money0(imp) + ". " : "") + "¿Se encuentra?"); return; }
     case "progress": { const p = vaPend().length, tot = VA.list.length; VA.got = ""; S2("Llevas " + (tot - p) + " de " + tot + ". Faltan " + p + ". ¿Se encuentra este?"); return; }
-    case "help": VA.got = ""; S2("Responde sí, no, o siguiente. También: está pero roto, ¿dónde está?, detalles, repite, deshaz, ve al número, nota y lo que quieras anotar, pausa o termina. ¿Se encuentra?"); return;
+    case "help": VA.got = ""; S2("Puedes decir: sí, no, o siguiente. Estado: bueno, regular, malo, o está roto. Busca: busca silla. Lugar: ve al área de sistemas, o ve al 730390. Dudas: ¿cuántas sillas faltan?, ¿qué faltan?, ¿cuánto vale?, ¿dónde está?, detalles, repite. Otras: lo mismo, anterior, deshaz, nota, pausa o termina. ¿Se encuentra?"); return;
     case "pause": vaPause(); return;
     case "end": vaFinish("Terminamos por ahora."); return;
     case "goto": { const j = VA.list.findIndex((t) => String(mbOf(t)) === cmd.mb); if (j < 0) { VA.got = ""; S2("El marbete " + cmd.mb.split("").join(" ") + " no está en esta lista. ¿Se encuentra el actual?"); return; } VA.i = j; VA.area = ""; VA.got = "Ir al " + cmd.mb; const t2 = VA.list[j]; if (C.getMark(vaName(t2), t2)) { S2("Ese ya está revisado como " + (C.getMark(vaName(t2), t2).e === "si" ? "presente" : "no está") + ". Sigo con los pendientes."); VA.i = (j + 1) % VA.list.length; return; } vaAsk(""); return; }
+    case "find": { const n = VA.list.length; let found = -1; for (let k = 0; k < n && found < 0; k++) { const j = (VA.i + 1 + k) % n, t2 = VA.list[j]; if (!C.getMark(vaName(t2), t2) && vaMatchTok(t2, cmd.q)) found = j; } for (let k = 0; k < n && found < 0; k++) if (vaMatchTok(VA.list[k], cmd.q)) found = k; if (found < 0) { VA.got = ""; S2("No encontré «" + cmd.q + "» en esta lista. ¿Se encuentra el actual?"); return; } VA.i = found; VA.area = ""; VA.got = "Encontrado"; S2("Lo encontré. " + vaQuestion(VA.list[found])); return; }
+    case "area": { const n = VA.list.length; let found = -1; for (let k = 0; k < n && found < 0; k++) { const j = (VA.i + k) % n, t2 = VA.list[j]; if (!C.getMark(vaName(t2), t2) && vzMatch(vnorm(areaOf(t2) || ""), cmd.q)) found = j; } if (found < 0) { VA.got = ""; S2("No quedan pendientes en " + cmd.q + ". ¿Se encuentra el actual?"); return; } VA.i = found; VA.area = ""; VA.got = "Área"; vaAsk("Vamos a esa área."); return; }
+    case "count": { const all = VA.list.filter((t2) => vaMatchTok(t2, cmd.q)), pend = all.filter((t2) => !C.getMark(vaName(t2), t2)).length; VA.got = ""; S2("Hay " + all.length + " de «" + cmd.q + "» en esta lista, y faltan " + pend + " por revisar. ¿Se encuentra el actual?"); return; }
+    case "pendlist": { const pl = vaPend(), n = pl.length; VA.got = ""; if (!n) { S2("No queda ninguno pendiente. ¿Se encuentra el actual?"); return; } S2("Faltan " + n + ". Los primeros son " + pl.slice(0, 3).map((t2) => vaSpokenMb(t2)).join(", ") + (n > 3 ? ", y " + (n - 3) + " más" : "") + ". ¿Se encuentra el actual?"); return; }
+    case "value": { if (!tok) return; const imp = cell(C.row(tok), K.IM); VA.got = ""; S2(imp ? "Vale " + money0(imp) + ". ¿Se encuentra?" : "No tiene importe registrado. ¿Se encuentra?"); return; }
+    case "sameNone": VA.got = ""; S2("Todavía no hay una marca anterior. ¿Cuál es el estado?"); return;
     case "note": { if (!tok) return; const name = vaName(tok), m = C.getMark(name, tok), n = (cmd.note.charAt(0).toUpperCase() + cmd.note.slice(1)).slice(0, 300); if (m) C.markTo(name, tok, m.e, { n }); else VA.note = n; VA.got = "Nota guardada"; S2("Anotado. ¿Se encuentra?"); return; }
   }
 }

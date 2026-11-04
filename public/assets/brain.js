@@ -89,6 +89,33 @@ const SYN = [
   ["vehiculo", "vehiculos", "automovil", "camioneta", "~carro", "~auto"],
   ["red", "switch", "router", "access point", "rack"],
   ["telefono", "telefonos", "conmutador"],
+  ["mesa", "mesas", "escritorio", "escritorios", "buro", "buros", "mesa de trabajo", "mesita", "mesas de trabajo"],
+  ["ventilador", "ventiladores", "abanico", "abanicos", "turbina", "turbinas"],
+  ["calentador", "calentadores", "boiler", "boilers", "termo", "termotanque", "termos"],
+  ["extintor", "extintores", "extinguidor", "extinguidores"],
+  ["cafetera", "cafeteras", "licuadora", "licuadoras", "hervidor", "hervidores", "microondas", "horno", "hornos", "estufa", "estufas", "parrilla", "parrillas", "refri", "frigobar", "hornilla"],
+  ["bicicleta", "bicicletas", "bici", "bicis", "bicicleteta"],
+  ["teclado", "teclados", "keyboard", "keyboards"],
+  ["mouse", "mouses", "raton", "ratones", "mause"],
+  ["camara", "camaras", "videocamara", "videocamaras", "cctv", "webcam", "webcams"],
+  ["lampara", "lamparas", "luminaria", "luminarias", "foco", "focos", "reflector", "reflectores", "bombilla", "bombillas", "led"],
+  ["cable", "cables", "extension", "extensiones", "multicontacto", "multicontactos", "regleta", "regletas", "clavija", "clavijas"],
+  ["gabinete", "gabinetes", "locker", "lockers", "casillero", "casilleros", "armario", "armarios", "closet", "closets", "guardarropa"],
+  ["escalera", "escaleras", "escalera de tijera", "escaleras de tijera", "escabel", "escabeles"],
+  ["herramienta", "herramientas", "taladro", "taladros", "desarmador", "desarmadores", "pinza", "pinzas", "llave", "llaves", "martillo", "martillos", "caja de herramientas"],
+  ["sillon", "sillones", "sofa", "sofas", "banca", "bancas", "banqueta", "banquetas", "silla de visita", "sillas de visita"],
+  ["bote", "botes", "cesto", "cestos", "basurero", "basureros", "bote de basura", "contenedor", "contenedores", "tacho", "tachos"],
+  ["reloj", "relojes", "checador", "checadores", "reloj checador", "relojes checadores", "reloj biometrico"],
+  ["cortina", "cortinas", "persiana", "persianas", "toldo", "toldos"],
+  ["vitrina", "vitrinas", "mostrador", "mostradores", "exhibidor", "exhibidores", "aparador", "aparadores"],
+  ["fax", "faxes", "fotocopiadora", "fotocopiadoras", "copiadora", "copiadoras", "escaner", "escaneres", "scanner", "scanners", "escanner"],
+  ["tableta", "tabletas", "tablet", "tablets", "ipad", "ipads", "celular", "celulares", "movil", "moviles", "smartphone", "smartphones"],
+  ["servidor", "servidores", "server", "servers", "nas", "almacenamiento"],
+  ["cocina", "cocinas", "fregadero", "fregaderos", "lavatrastes", "lavaplatos", "estufa de gas"],
+  ["sistema de sonido", "consola", "consolas", "amplificador", "amplificadores", "microfono", "microfonos", "mezcladora", "mezcladoras"],
+  ["bascula", "basculas", "balanza", "balanzas", "medidor", "medidores", "termometro", "termometros"],
+  ["motor", "motores", "bomba", "bombas", "compresor", "compresores", "planta de luz", "generador", "generadores"],
+  ["tanque", "tanques", "cisterna", "cisternas", "deposito", "depositos"],
 ];
 const SYNMAP = new Map(); for (const g of SYN) { const use = g.filter((x) => x[0] !== "~"); for (const w0 of g) { const w = w0.replace("~", ""); const s = SYNMAP.get(w) || new Set(); use.forEach((x) => s.add(x)); SYNMAP.set(w, s); } }
 function alts(w) {
@@ -137,9 +164,11 @@ const FLAB = { mb: "Marbete", ds: "Descripción", ma: "Marca", mo: "Modelo", se:
 const toNum = (s, k) => { let n = parseFloat(String(s).replace(/,/g, "")); if (!isFinite(n)) return null; if (k) n *= 1000; return n; };
 const FLAGS = [
   [/\bsin (?:numero de |no de |num de )?serie\b|\bsin ns\b/, "Sin número de serie", (it) => B.blank(it.se)],
-  [/\bcon (?:numero de )?serie\b/, "Con número de serie", (it) => !B.blank(it.se)],
+  [/\b(?:con|tienen|tiene|que tengan|que tienen|que tiene|con numero de|con num de) (?:numero de |no de |num de )?serie\b|\bcon ns\b/, "Con número de serie", (it) => !B.blank(it.se)],
   [/\bsin marca\b/, "Sin marca", (it) => B.blank(it.ma)],
   [/\bsin modelo\b/, "Sin modelo", (it) => B.blank(it.mo)],
+  [/\bcon marca\b/, "Con marca", (it) => !B.blank(it.ma)],
+  [/\bcon modelo\b/, "Con modelo", (it) => !B.blank(it.mo)],
   [/\bsin (?:importe|valor|precio|costo)\b/, "Sin importe", (it) => !it.im],
   [/\bsin (?:area|ubicacion)\b/, "Sin área", (it) => !it.ar],
   [/\bsin (?:resguardante|responsable|dueno)\b/, "Sin resguardante", (it) => it.rc === SIN],
@@ -459,6 +488,7 @@ B.insights = () => {
 
 /* ---------- preguntas en español ---------- */
 const INTENTS = [
+  ["advice", /\b(que (?:debo|deberia|conviene|atiendo|hago|reviso|sigue)|por donde empiezo|por donde (?:empiezo|empiezas)|prioridades?|que me recomiendas|recomiendas?|recomienda|que atender|que atiendo|dame un resumen|un resumen|resumelo|en pocas palabras|que tan bien va|como esta todo)\b/],
   ["progress", /\b(como va|como vamos|como lleva|avance|progreso|cuanto falta|que tanto falta|cuantos faltan por revisar)\b/],
   ["who_mb", /\b(?:quien tiene|de quien es|a quien pertenece|donde esta|quien resguarda|resguardante del?|que es)\s+(?:el\s+|la\s+)?(?:marbete|numero|articulo|no\.?)?\s*(\d{3,})\b/],
   ["top_res", /\b(?:que|cual|cuales) (?:resguardantes?|personas?)\b|\bquien(?:es)? (?:tiene|tienen|resguarda|resguardan) (?:mas|menos)\b|\b(?:resguardantes?|personas?) con (?:mas|menos)\b/],
@@ -474,7 +504,19 @@ const INTENTS = [
 ];
 const QSTART = /^(cuant|que|quien|donde|cual|como|muestr|ensen|dame|lista|hay|busca|quiero|cuanto|en que|de quien|a quien)/;
 B.isQuestion = (q) => { const s = norm(q); return /[¿?]/.test(q) || QSTART.test(s) || /\b(mas|menos) (car|antig|viej|recient)/.test(s); };
+// memoria: «y de esos cuántos son malos» continúa lo que se preguntó antes
+let LAST = null;
+const FOLLOW = /^(?:y de (?:esas?|esos|ellas?|ellos|los que|las que|estos|estas) |de (?:esas?|esos|ellas?|ellos|los que|las que|estos|estas) |y |pero |tambien |solo |nada mas |en cambio )/;
 B.ask = (q) => {
+  // «tienen serie» = «con serie» (antes de quitar palabras de relleno)
+  const sNorm = norm(strip(q).replace(/[¿?¡!]/g, " ")).replace(/\b(?:no (?:tienen|tiene|tengan|tenga)|sin) (?:numero de |num de |no de )?(marca|modelo|serie|resguardante|area|importe|valor|foto|fotos|fecha)\b/g, "sin $1").replace(/\b(?:tienen|tiene|tengan|tenga) (?:numero de |no de )?serie\b/g, "con serie").replace(/\b(?:tienen|tiene|tengan|tenga) (marca|modelo|foto|fotos|importe|valor)\b/g, "con $1"), fu = FOLLOW.exec(sNorm);
+  let qq = sNorm;
+  if (fu && LAST && LAST.query) qq = sNorm.slice(fu[0].length) + " " + LAST.query;
+  const r = askCore(qq);
+  if (r && r.query && (r.intent === "count" || r.intent === "list" || r.intent === "sum" || r.intent === "avg")) LAST = { query: r.query, intent: r.intent };
+  return r;
+};
+function askCore(q) {
   const s = norm(strip(q).replace(/[¿?¡!]/g, " "));
   if (!s) return null;
   let intent = "count", m = null;
@@ -484,6 +526,11 @@ B.ask = (q) => {
   const yr = new Date().getFullYear();
   const valueQ = /\b(valor|vale|valen|car[oa]|dinero|pesos|importe|costos)/.test(s);
   const low = /\b(menos|menor)\b/.test(s);
+  if (intent === "advice") {
+    const ins = B.insights().slice(0, 3);
+    if (!ins.length) return { intent, title: "Todo en orden", sentence: "No veo nada urgente en los datos. Sigue con la revisión y vuelve a preguntar cuando avance." };
+    return { intent, title: "Qué conviene atender", sentence: "Te sugiero, en este orden: " + ins.map((x, i) => (i + 1) + ". " + x.title.charAt(0).toLowerCase() + x.title.slice(1)).join("; ") + ".", go: "#/salud", goLabel: "Ver salud de datos" };
+  }
   if (intent === "progress") {
     const t = B.totals();
     const sentence = !t.rev ? `Todavía no empieza ninguna revisión. Hay ${B.int(t.items)} artículos por revisar con la app de celular.` : `Van ${B.int(t.rev)} de ${B.int(t.items)} artículos revisados. ${t.fin ? `${B.plural(t.fin, "resguardante")} ya ${t.fin === 1 ? "terminó" : "terminaron"}` : "Nadie ha terminado todavía"}${t.started ? ` y ${B.plural(t.started, "revisión", "revisiones")} ${t.started === 1 ? "está" : "están"} en curso` : ""}. ${t.no ? `No se han encontrado ${B.plural(t.no, "artículo")}.` : ""}`;
@@ -532,7 +579,16 @@ B.ask = (q) => {
   if (intent === "avg") { const l = list.filter((x) => x.im > 0); const av = l.length ? B.sum(l) / l.length : 0; return { ...base, title: "Valor promedio", big: B.money(av, 0), sentence: `El valor promedio ${P.empty ? "de un artículo" : "de " + what} es ${B.money(av)} (${B.plural(l.length, "artículo")} con importe).`, items: top(list), total: list.length }; }
   const ppl = new Set(list.map((x) => x.rc));
   const who = ppl.size === 1 && !list.every((x) => x.rc === SIN) && P.words.some((w) => index().nameTok.has(w.w)) ? ` en resguardo de ${B.title(list[0].rc)}` : "";
-  return { ...base, title: capital(what), big: B.int(list.length), sentence: `Hay ${B.plural(list.length, "artículo")}${P.empty ? "" : " que coinciden con " + what}${who}. Valen ${B.money(sum)}${ppl.size > 1 ? `, repartidos entre ${B.plural(ppl.size, "resguardante")}` : ""}.`, items: top(list), total: list.length };
+  let extra = "";
+  if (list.length >= 5) {
+    const malos = list.filter((x) => x.mark?.c === "M").length, pend = list.filter((x) => !x.mark).length, sinR = list.filter((x) => x.rc === SIN).length, bits = [];
+    if (malos) bits.push(`${B.pct(malos, list.length)}% (${B.int(malos)}) en mal estado`);
+    if (pend && pend === list.length) bits.push("ninguno revisado todavía");
+    else if (pend) bits.push(`${B.int(pend)} sin revisar`);
+    if (sinR) bits.push(`${B.int(sinR)} sin resguardante`);
+    if (bits.length) extra = " Detalle: " + bits.join(", ") + ".";
+  }
+  return { ...base, title: capital(what), big: B.int(list.length), sentence: `Hay ${B.plural(list.length, "artículo")}${P.empty ? "" : " que coinciden con " + what}${who}. Valen ${B.money(sum)}${ppl.size > 1 ? `, repartidos entre ${B.plural(ppl.size, "resguardante")}` : ""}.${extra}`, items: top(list), total: list.length };
 };
 const capital = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 function describe(P) {

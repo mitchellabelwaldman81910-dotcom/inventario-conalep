@@ -1,6 +1,6 @@
 /* Guía de ayuda del inventario CONALEP: una sola fuente para la app del celular y el portal. */
 window.AYUDA = {
-  version: "12.0",
+  version: "13.0",
 
   /* Los 4 pasos de una revisión (se usan en la app, en el portal y en la guía inicial) */
   flujo: [
@@ -59,7 +59,8 @@ window.AYUDA = {
         "La app pregunta por cada artículo pendiente: dice el marbete, qué es y <b>«¿Se encuentra?»</b>. Cuando cambia de área, te avisa.",
         "Contesta como hablas: <b>«sí, aquí está»</b> o <b>«lo tengo»</b> = presente; <b>«no»</b>, <b>«no lo encuentro»</b> o <b>«falta»</b> = no está; <b>«luego lo busco»</b> o <b>«siguiente»</b> = lo deja para después.",
         "Para el estado: <b>«está pero roto»</b>, <b>«no funciona»</b> (malo) o <b>«regular»</b>. Para anotar algo: <b>«nota: le falta una pata»</b>.",
-        "También entiende <b>«¿dónde está?»</b> (te dice el área), <b>«detalles»</b> (marca, modelo, serie, valor), <b>«repite»</b>, <b>«deshaz»</b>, <b>«ve al 730390»</b>, <b>«¿cuántos faltan?»</b>, <b>«pausa»</b> y <b>«termina»</b>.",
+        "También entiende <b>«¿dónde está?»</b> (te dice el área), <b>«detalles»</b> (marca, modelo, serie), <b>«¿cuánto vale?»</b>, <b>«repite»</b>, <b>«deshaz»</b>, <b>«lo mismo»</b> (repite el estado del anterior), <b>«ve al 730390»</b> o <b>«siete tres cero…»</b> (dictar los números), <b>«busca silla»</b>, <b>«ve al área de sistemas»</b>, <b>«¿cuántas sillas faltan?»</b>, <b>«¿qué faltan?»</b>, <b>«pausa»</b> y <b>«termina»</b>.",
+        "Entiende muchas formas de decir lo mismo y tolera errores de dicción: «encontré», «ya lo vi», «está aquí», «se lo llevaron», «está viejo», «sin patas», «funciona bien»… Si no entiende, te lo dice y tú repites.",
         "En pantalla ves la pregunta, lo que escuchó y lo que entendió. Los botones <b>Sí, está</b> / <b>No está</b> / <b>Después</b> siempre funcionan.",
       ],
       tips: ["Escuchar solo funciona en <b>Chrome</b> (Android y computadora) y necesita internet. En otros navegadores la app igual te pregunta en voz alta y contestas con los botones.", "En lugares con ruido funciona peor: habla cerca del teléfono, normal, después de que termine la pregunta.", "Dentro de <b>Revisar uno por uno</b> sigue el micrófono de arriba para leer los bienes en voz alta."],
