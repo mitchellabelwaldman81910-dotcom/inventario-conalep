@@ -56,7 +56,7 @@ function initLogin() {
 /* ================= BARRA LATERAL Y SUPERIOR ================= */
 const NAV = [
   [null, [["inicio", "home", "Inicio"]]],
-  ["Inventario", [["lista", "list", "Lista completa"], ["resguardantes", "people", "Resguardantes"], ["areas", "map", "Áreas"]]],
+  ["Inventario", [["lista", "list", "Lista completa"], ["resguardantes", "people", "Resguardantes"], ["areas", "map", "Áreas"], ["cerebro", "spark", "Cerebro"]]],
   ["Revisión", [["vivo", "pulse", "En vivo"], ["analisis", "chart", "Análisis"], ["salud", "shield", "Salud de los datos"]]],
   ["Herramientas", [["etiquetas", "qr", "Etiquetas QR"], ["importar", "upload", "Importar Excel"], ["historial", "clock", "Bitácora"]]],
 ];

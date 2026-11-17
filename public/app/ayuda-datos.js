@@ -1,6 +1,6 @@
 /* Guía de ayuda del inventario CONALEP: una sola fuente para la app del celular y el portal. */
 window.AYUDA = {
-  version: "18.0",
+  version: "19.0",
 
   /* Los 4 pasos de una revisión (se usan en la app, en el portal y en la guía inicial) */
   flujo: [
@@ -111,16 +111,16 @@ window.AYUDA = {
     },
     {
       id: "cerebro", i: "brain", t: "Cerebro",
-      q: "Todo el inventario como una red morada que puedes explorar.",
-      kw: "cerebro red grafo mapa conexiones nodos puntos visual morado todo conectado archivos",
+      q: "Todo el inventario como una constelación morada que puedes recorrer.",
+      kw: "cerebro red grafo mapa conexiones nodos puntos visual morado todo conectado archivos recorrido tour estrellas constelacion",
       pasos: [
-        "Entra a <b>Cerebro</b> desde Inicio o Más. Verás una red: al centro el inventario, alrededor las <b>áreas</b> (rosa), los <b>resguardantes</b> (morado) y sus <b>artículos</b> (puntos pequeños).",
-        "Colores: verde agua = presente, rojo = no está, azul violeta = sin revisar, dorado = en baja, blanco = con foto. Los cuadros dorados son tus listas de baja.",
-        "Mueve la red con un dedo y acércala con dos dedos (o con los botones + y −). El botón de la esquina vuelve a mostrar todo.",
-        "<b>Toca un punto</b> para iluminar sus conexiones y ver sus datos; el botón <b>Abrir</b> te lleva a la persona, el salón, la lista o el artículo.",
-        "Los filtros de arriba (Presentes, No están, Sin revisar, Bajas, Fotos) apagan lo demás para ver solo eso."
+        "Entra a <b>Cerebro</b> desde Inicio o Más (en el portal, desde el menú de la izquierda). Cada <b>resguardante</b> es un círculo de puntos; cada punto es un artículo. Los puntos azules son las <b>áreas</b> que unen a las personas.",
+        "Toca <b>Recorrido</b>: la cámara viaja sola siguiendo los hilos, de un lugar a la persona que lo tiene, de ahí a su siguiente lugar, y así tejiendo todo el inventario. Puedes pausar, saltar o terminar.",
+        "Mueve con un dedo, acerca con dos dedos (o doble toque, o los botones + y −). <b>Centrar</b> vuelve a mostrar todo.",
+        "<b>Toca un punto</b> para iluminar sus conexiones y ver sus datos; <b>Abrir</b> te lleva a la persona, el lugar, la lista o el artículo.",
+        "El botón del centro cambia el filtro: Todo, Sin revisar, Presentes, No están, Bajas y Fotos. Lo que no coincide se apaga."
       ],
-      tips: ["Los resguardantes con aro verde ya terminaron su inventario.", "Se arma con lo que ya está en el teléfono, así que también funciona sin internet."]
+      tips: ["Los resguardantes con aro verde ya terminaron su inventario.", "Los nombres solo aparecen al acercarte, para que no se vea saturado."]
     },
     {
       id: "fechas", i: "clock", t: "Todo por fechas",
@@ -584,7 +584,7 @@ window.AYUDA = {
     search: { t: "Buscar", l: ["Escribe marbete, descripción, serie, marca, área o persona.", "Toca un resultado para ver de quién es.", "El icono de escanear consulta un marbete con la cámara."], topic: "buscar" },
     act: { t: "Actividad", l: ["Lo que hiciste hoy: revisados, presentes, no están, traslados y fotos.", "Abajo está el historial completo de este teléfono."], topic: "actividad" },
     more: { t: "Más", l: ["<b>Envíos al portal</b> muestra lo que falta por enviar.", "Aquí cambias el <b>tamaño del texto</b> y el tema.", "Cierra sesión al terminar si el teléfono es compartido."], topic: "ajustes" },
-    cerebro: { t: "Cerebro", l: ["Mueve con un dedo, acerca con dos.", "Toca un punto para ver sus conexiones y abrirlo.", "Los filtros de arriba resaltan solo un grupo."], topic: "cerebro" },
+    cerebro: { t: "Cerebro", l: ["Toca Recorrido para que la cámara viaje sola.", "Mueve con un dedo, acerca con dos.", "Toca un punto para ver sus conexiones y abrirlo."], topic: "cerebro" },
     fotos: { t: "Fotos", l: ["Todas las fotos por día. Filtra por tipo, <b>Hoy</b> o <b>Por enviar</b>.", "Toca una foto para verla, cambiar su tipo o escribir una nota.", "<b>Faltan</b> te dice a qué bienes importantes les falta foto."], topic: "fotos" },
     linea: { t: "Fechas", l: ["Cuándo se terminó cada inventario, cada baja y cada foto.", "Toca un renglón para abrirlo."], topic: "fechas" },
     bajas: { t: "Bajas", l: ["<b>Nueva lista de bajas</b> crea una lista con nombre, fecha y folio.", "Dentro agregas bienes, fotos y motivos.", "Imprime la relación con firmas."], topic: "bajas" },

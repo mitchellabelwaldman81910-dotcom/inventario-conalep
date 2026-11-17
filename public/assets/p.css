@@ -1043,3 +1043,7 @@ input::placeholder{text-overflow:ellipsis}
 .credits .sig-big{color:#1d2c6b}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .credits .sig-big{color:#a9bcff}}
 :root[data-theme="dark"] .credits .sig-big{color:#a9bcff}
+
+/* ---- cerebro ---- */
+.cbx-wrap{position:relative;margin:-22px -28px -80px;height:calc(100dvh - 64px);min-height:440px;background:#05030f}
+@media (max-width:770px){.cbx-wrap{margin:-16px -16px -80px}}

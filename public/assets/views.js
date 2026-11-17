@@ -977,5 +977,25 @@ U.route("articulo", (r) => {
 });
 function factsLite(it) { return `<dl class="facts">${D.inv.h.map((hh) => [hh, D.cell(it, hh)]).filter(([, v]) => v).map(([k, v]) => `<dt>${esc(B.smart(k))}</dt><dd>${esc(U.fv(k, v))}</dd>`).join("")}</dl>${S.ctxHtml(it)}`; }
 
+/* ================= CEREBRO: todo el inventario como una constelación ================= */
+U.route("cerebro", () => {
+  const el = h(`<div class="cbx-wrap"></div>`); let ctl = null, sig = -1;
+  const ST = [{ l: "Sin revisar", c: "#c8b4ff" }, { l: "Bueno", c: "#4df0c8" }, { l: "Regular", c: "#ffd166" }, { l: "Malo", c: "#ff8a6b" }, { l: "No está", c: "#ff5d8f" }];
+  const data = () => {
+    const pl = {}, al = {}, fin = {};
+    const items = D.items.map((it) => {
+      const a = it.ar || ""; if (!(it.rc in pl)) { pl[it.rc] = U.nm(it.rc); fin[it.rc] = !!(D.people.get(it.rc)?.doc?.fin); } if (!(a in al)) al[a] = a ? U.txt(a) : "Sin área";
+      const m = it.mark, s = !m ? 0 : m.e === "no" ? 4 : m.e === "si" ? ({ B: 1, R: 2, M: 3 }[m.c || "B"] || 1) : 0;
+      return { k: it.tok, mb: it.mb, ds: U.txt(it.ds), p: it.rc, a, s, baja: false, foto: it.fotos > 0 };
+    });
+    return { items, pl, al, fin, listas: [] };
+  };
+  return {
+    el, title: "Cerebro",
+    after() { if (!window.Cerebro) { el.innerHTML = U.empty("search", "No se pudo cargar el Cerebro", "Recarga la página."); return; } ctl = Cerebro.mount(el, data(), { st: ST, motion: !document.documentElement.classList.contains("lessmo"), nf: B.int, onOpen: (kind, key) => { if (kind === "per") U.go("#/resguardante/" + encodeURIComponent(key)); else if (kind === "area") U.go(qLink('area:"' + key + '"')); else if (kind === "item") S.openItem(key); } }); sig = D.rev; },
+    update: U.debounce(() => { if (ctl && D.rev !== sig) { sig = D.rev; ctl.setData(data()); } }, 4000),
+  };
+});
+
 S.start();
 })();

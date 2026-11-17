@@ -3131,281 +3131,35 @@ Object.assign(A, {
 });
 
 /* =================== CEREBRO =================== */
-// Todo el inventario como una red viva: centro → áreas → resguardantes → artículos (+ listas de baja y fotos).
-const CB = { raf: 0, g: null, v: { x: 0, y: 0, k: 1 }, sel: -1, f: "all", w: 0, h: 0, dpr: 1, t0: 0, intro: 0, sig: "", last: 0, ptr: new Map(), moved: 0, pinch: 0, sigs: [], vis: 0 };
-const CBC = { core: "#9b5cff", area: "#ff3d7f", per: "#b890ff", si: "#2ef2c8", no: "#ff4d5e", pen: "#7d77ff", baja: "#ffd24d", foto: "#ffffff", lista: "#ffb020" };
-function cbRng(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-const SP = 2.7;
-function cbPack(items) {
-  const g = new Map();
-  for (const x of items) { const w = vnorm(x.ds).split(" ").filter(Boolean).slice(0, 2).join(" ") || "otros"; (g.get(w) || g.set(w, []).get(w)).push(x); }
-  const big = [], loose = [];
-  for (const [k, v] of g) { if (v.length >= 3) big.push({ label: cap(k), items: v, hub: true }); else loose.push(...v); }
-  big.sort((a, b) => b.items.length - a.items.length);
-  if (loose.length) big.push({ label: "Otros", items: loose, hub: loose.length >= 3 });
-  const placed = [];
-  for (const sb of big) {
-    sb.rs = 5 + SP * Math.sqrt(sb.items.length); sb.off = (sb.items.length * 1.7) % 6.28;
-    if (!placed.length) { sb.dx = 0; sb.dy = 0; placed.push(sb); continue; }
-    let ang = placed.length * 2.4, rad = 0, ok = false;
-    for (let it = 0; it < 4000 && !ok; it++) {
-      rad += 0.9; ang += Math.min(0.9, 9 / (rad + 6));
-      const x = Math.cos(ang) * rad, y = Math.sin(ang) * rad; ok = true;
-      for (const q of placed) if (Math.hypot(x - q.dx, y - q.dy) < sb.rs + q.rs + 3) { ok = false; break; }
-      if (ok) { sb.dx = x; sb.dy = y; }
-    }
-    if (!ok) { sb.dx = rad; sb.dy = 0; }
-    placed.push(sb);
-  }
-  let cr = 8; for (const q of placed) cr = Math.max(cr, Math.hypot(q.dx, q.dy) + q.rs + 4);
-  return { subs: placed, cr };
-}
+// La constelación vive en cerebro.js (motor compartido con el portal). Aquí solo se le dan los datos.
 const cbFin = (n) => { try { return !!(C.summaryOf(n) || {}).fin; } catch (e) { return false; } };
-function cbBuild() {
-  const rows = vaRows(), rnd = cbRng(1802), N = [], E = [];
-  const add = (o) => { o.i = N.length; N.push(o); return o; };
-  const core = add({ t: "core", x: 0, y: 0, r: 15, label: "Inventario", n: rows.length });
-  // áreas y resguardantes
-  const aMap = new Map(), pMap = new Map();
-  for (const x of rows) {
-    const ak = C.areaKey(x.tok), pk = x.own;
-    let a = aMap.get(ak); if (!a) aMap.set(ak, (a = { name: ak, n: 0, si: 0, no: 0 }));
-    let p = pMap.get(pk); if (!p) pMap.set(pk, (p = { name: pk, n: 0, si: 0, no: 0, ar: new Map(), items: [] }));
-    a.n++; p.n++; if (x.rev === "presente") { a.si++; p.si++; } else if (x.rev === "no_esta") { a.no++; p.no++; }
-    p.ar.set(ak, (p.ar.get(ak) || 0) + 1); p.items.push(x);
-  }
-  const an = new Map();
-  for (const a of aMap.values()) an.set(a.name, add({ t: "area", name: a.name, label: scase(a.name), n: a.n, si: a.si, no: a.no, r: 5 + Math.min(7, Math.sqrt(a.n) * 0.35), hub: true }));
-  const pn = [];
-  for (const p of pMap.values()) {
-    let best = "", bn = -1; for (const [k, v] of p.ar) if (v > bn) { bn = v; best = k; }
-    const lbl = p.name === C.SIN ? "Sin resguardante" : tcase(p.name);
-    const pk = cbPack(p.items);
-    const nd = add({ t: "per", name: p.name, label: lbl, n: p.n, si: p.si, no: p.no, area: an.get(best), r: 3.4 + Math.min(6, Math.sqrt(p.n) * 0.22), hub: true, cr: pk.cr, pack: pk.subs, fin: cbFin(p.name) });
-    pn.push([nd, p]); E.push([an.get(best).i, nd.i, 1]);
-  }
-  for (const a of an.values()) E.push([0, a.i, 2]);
-  // listas de baja
-  const ln = [];
-  for (const l of C.bajaList()) { const nd = add({ t: "lista", id: l.id, label: l.nombre, n: Object.keys(l.items || {}).length, r: 6, hub: true, cr: 12 }); ln.push([nd, l]); E.push([0, nd.i, 2]); }
-  /* ---- posiciones de los centros: fuerzas con colisión ---- */
-  const H = N.filter((n) => n.hub || n.t === "core"), spread = 140;
-  for (const n of H) if (n.t !== "core") { const a = rnd() * 6.2832, d = n.t === "area" ? 220 + rnd() * 160 : 420 + rnd() * 420; n.x = Math.cos(a) * d; n.y = Math.sin(a) * d; }
-  const rad = (n) => (n.cr || (n.t === "area" ? 26 : n.t === "core" ? 34 : 12)) + 6;
-  const hubE = E.filter((e) => N[e[0]].hub !== undefined || N[e[0]].t === "core").map((e) => [N[e[0]], N[e[1]], e[2]]);
-  for (let it = 0; it < 420; it++) {
-    const cool = 1 - it / 420, st = 0.5 * cool + 0.04;
-    for (const [a, b, w] of hubE) { // resortes
-      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
-      const L = (a.t === "core" ? (b.t === "area" ? 190 : 120) : rad(a) * 0.9 + rad(b) * 0.9 + 14), f = (d - L) * 0.06 * st;
-      if (a.t !== "core") { a.x += (dx / d) * f; a.y += (dy / d) * f; }
-      b.x -= (dx / d) * f; b.y -= (dy / d) * f;
-    }
-    for (let i = 0; i < H.length; i++) for (let j = i + 1; j < H.length; j++) { // choques
-      const a = H[i], b = H[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.01, m = rad(a) + rad(b);
-      if (d < m) { const f = ((m - d) / d) * 0.5 * st; if (a.t !== "core") { a.x -= dx * f; a.y -= dy * f; } if (b.t !== "core") { b.x += dx * f; b.y += dy * f; } }
-    }
-    for (const n of H) if (n.t !== "core") { n.x *= 1 - 0.0045 * st; n.y *= 1 - 0.0045 * st; }
-  }
-  // malla: cada área se conecta con sus 2 vecinas más cercanas y cada resguardante con su 2.ª área
-  const ar = [...an.values()];
-  for (const a of ar) { const d = ar.filter((b) => b !== a).map((b) => [Math.hypot(a.x - b.x, a.y - b.y), b]).sort((u, v) => u[0] - v[0]).slice(0, 2); for (const [, b] of d) if (a.i < b.i || !E.some((e) => e[2] === 5 && e[0] === b.i && e[1] === a.i)) E.push([a.i, b.i, 5]); }
-  for (const [nd, p] of pn) { const l = [...p.ar].sort((u, v) => v[1] - u[1]); if (l[1] && l[1][1] / p.n > 0.2 && an.get(l[1][0])) E.push([an.get(l[1][0]).i, nd.i, 5]); }
-  // artículos alrededor de su resguardante (espiral de girasol)
-  const byTok = new Map(), GA = 2.39996323;
-  for (const [nd, p] of pn) {
-    for (const sb of nd.pack) {
-      const sx = nd.x + sb.dx, sy = nd.y + sb.dy; let hub = null;
-      if (sb.hub) { hub = add({ t: "grp", label: sb.label, n: sb.items.length, si: sb.items.filter((x) => x.rev === "presente").length, no: sb.items.filter((x) => x.rev === "no_esta").length, r: 2.4, x: sx, y: sy, par: nd.i }); E.push([nd.i, hub.i, 6]); }
-      sb.items.forEach((x, i) => {
-        const rr = (sb.hub ? 4.2 : 3.6) + SP * Math.sqrt(i + 0.4), a = i * GA + sb.off, bj = C.bajaOf(x.tok), isB = !!bj || /^BAJA\b/.test(x.nota || "");
-        const it = add({ t: "art", tok: x.tok, label: x.mb, r: x.rev === "pendiente" ? 1.2 : 1.6, st: x.rev, baja: isB, x: sx + Math.cos(a) * rr, y: sy + Math.sin(a) * rr, par: hub ? hub.i : nd.i });
-        byTok.set(x.tok, it); E.push([hub ? hub.i : nd.i, it.i, 0]);
-      });
-    }
-  }
-  // listas: enlaces a sus bienes
-  for (const [nd, l] of ln) for (const tk of Object.keys(l.items || {})) { const it = byTok.get(tk); if (it) E.push([nd.i, it.i, 3]); }
-  // fotos: junto a su artículo
-  const ph = C.allPhotos(); let nf = 0;
-  for (const f of ph) { const it = byTok.get(f.tok); if (!it) continue; const a = rnd() * 6.28, d = 4 + rnd() * 3; const fn = add({ t: "foto", tok: f.tok, label: "Foto", r: 1.7, x: it.x + Math.cos(a) * d, y: it.y + Math.sin(a) * d, par: it.i }); E.push([it.i, fn.i, 4]); it.foto = true; nf++; }
-  // vecinos para resaltar
-  const nb = N.map(() => []); for (const [a, b] of E) { nb[a].push(b); nb[b].push(a); }
-  // límites
-  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const n of N) { const q = n.cr || 0; x0 = Math.min(x0, n.x - q); y0 = Math.min(y0, n.y - q); x1 = Math.max(x1, n.x + q); y1 = Math.max(y1, n.y + q); }
-  const ph0 = rnd; for (const n of N) n.ph = ph0() * 6.28;
-  const hubsE = E.filter((e) => e[2] === 1 || e[2] === 2 || e[2] === 5);
-  CB.g = { N, E, nb, b: [x0, y0, x1, y1], by: byTok, counts: { n: N.length, e: E.length, art: byTok.size, per: pn.length, area: an.size, lista: ln.length, foto: nf }, hubsE };
-  CB.sigs = Array.from({ length: 14 }, () => ({ e: -1, t: 0, s: 0.4 + rnd() * 0.5 }));
-  CB.sig = cbSig();
-}
 function cbSig() { const g = C.groups(); return [g.reduce((a, x) => a + x.si + x.no, 0), C.bajaList().length, C.bajaList().reduce((a, l) => a + Object.keys(l.items || {}).length, 0), C.allPhotos().length].join("|"); }
-function cbFit() {
-  const g = CB.g; if (!g || !CB.w) return;
-  const [x0, y0, x1, y1] = g.b, w = x1 - x0, h = y1 - y0, k = Math.min(CB.w / (w + 60), CB.h / (h + 60));
-  CB.v.k = k; CB.v.x = CB.w / 2 - ((x0 + x1) / 2) * k; CB.v.y = CB.h / 2 - ((y0 + y1) / 2) * k; CB.fitK = k;
+function cbData() {
+  const rows = vaRows(), pl = {}, al = {}, fin = {}, ph = new Set(C.allPhotos().map((f) => f.tok));
+  const items = rows.map((x) => {
+    const ak = C.areaKey(x.tok); if (!(x.own in pl)) { pl[x.own] = x.own === C.SIN ? "Sin resguardante" : tcase(x.own); fin[x.own] = cbFin(x.own); } if (!(ak in al)) al[ak] = scase(ak);
+    return { k: x.tok, mb: x.mb, ds: descOf(x.tok), p: x.own, a: ak, s: x.rev === "presente" ? 1 : x.rev === "no_esta" ? 2 : 0, baja: !!C.bajaOf(x.tok) || /^BAJA\b/.test(x.nota || ""), foto: ph.has(x.tok) };
+  });
+  return { items, pl, al, fin, listas: C.bajaList().map((l) => ({ id: l.id, name: l.nombre, toks: Object.keys(l.items || {}) })) };
 }
-const cbMatch = (n, f) => {
-  if (f === "all") return true;
-  if (n.t === "art") return f === "si" ? n.st === "presente" : f === "no" ? n.st === "no_esta" : f === "pen" ? n.st === "pendiente" : f === "baja" ? n.baja : f === "foto" ? !!n.foto : true;
-  if (n.t === "foto") return f === "foto";
-  if (n.t === "lista") return f === "baja";
-  if (n.t === "per" || n.t === "area" || n.t === "grp") return f === "all" || (f === "no" ? n.no > 0 : f === "si" ? n.si > 0 : f === "pen" ? n.si + n.no < n.n : f === "baja" || f === "foto" ? false : true);
-  return true;
-};
-function cbDraw(ts) {
-  const g = CB.g, cv = CB.cv; if (!g || !cv) return;
-  const ctx = cv.getContext("2d"), { N, E } = g, v = CB.v, dpr = CB.dpr, f = CB.f, t = ts / 1000;
-  const grow = CB.intro ? Math.min(1, (ts - CB.t0) / 1700) : 1, e = 1 - Math.pow(1 - grow, 3);
-  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  // fondo
-  const bg = ctx.createRadialGradient(CB.w / 2, CB.h / 2, 10, CB.w / 2, CB.h / 2, Math.max(CB.w, CB.h) * 0.75);
-  bg.addColorStop(0, "#1c0f3d"); bg.addColorStop(0.45, "#0d0820"); bg.addColorStop(1, "#050310"); ctx.fillStyle = bg; ctx.fillRect(0, 0, CB.w, CB.h);
-  ctx.setTransform(dpr * v.k, 0, 0, dpr * v.k, dpr * v.x, dpr * v.y);
-  const px = (n) => n.x * e, py = (n) => n.y * e, sel = CB.sel, hl = sel >= 0 ? new Set([sel, ...g.nb[sel]]) : null, dim = f !== "all" || hl;
-  // resplandor del centro
-  const gl = ctx.createRadialGradient(0, 0, 0, 0, 0, 320); gl.addColorStop(0, "rgba(155,92,255,.55)"); gl.addColorStop(0.4, "rgba(110,60,220,.16)"); gl.addColorStop(1, "rgba(80,40,200,0)");
-  ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(0, 0, 320, 0, 6.2832); ctx.fill();
-  // enlaces por tipo
-  const STY = [["rgba(150,120,255,.22)", 0.45], ["rgba(200,120,255,.55)", 0.85], ["rgba(150,80,255,.6)", 1.1], ["rgba(255,210,77,.6)", 0.8], ["rgba(255,255,255,.4)", 0.5], ["rgba(120,200,255,.32)", 0.7], ["rgba(215,170,255,.5)", 0.7]];
-  for (let w = 0; w < 7; w++) {
-    ctx.beginPath(); ctx.strokeStyle = STY[w][0]; ctx.lineWidth = STY[w][1] / Math.max(0.6, Math.min(1.8, v.k));
-    if (dim && w === 0) ctx.globalAlpha = f === "all" ? 0.35 : 0.5; else ctx.globalAlpha = 1;
-    for (const [a, b, ty] of E) { if (ty !== w) continue; const A = N[a], B = N[b]; if (f !== "all" && !(cbMatch(A, f) && cbMatch(B, f))) continue; if (hl && w === 0 && !(hl.has(a) && hl.has(b))) continue; const ax = px(A), ay = py(A), bx = px(B), by = py(B);
-      ctx.moveTo(ax, ay);
-      if (w >= 1 && w !== 3 && w !== 4 && w !== 6) { const dx = bx - ax, dy = by - ay, sg = (a + b) % 2 ? 1 : -1; ctx.quadraticCurveTo((ax + bx) / 2 - dy * 0.12 * sg, (ay + by) / 2 + dx * 0.12 * sg, bx, by); } else ctx.lineTo(bx, by); }
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-  if (hl) { ctx.beginPath(); ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 1.1 / v.k; for (const b of g.nb[sel]) { ctx.moveTo(px(N[sel]), py(N[sel])); ctx.lineTo(px(N[b]), py(N[b])); } ctx.stroke(); }
-  // señales que viajan por la red
-  if (CB.motion && grow >= 1) {
-    for (const s of CB.sigs) {
-      if (s.e < 0 || s.t >= 1) { s.e = g.hubsE.length ? (Math.random() * g.hubsE.length) | 0 : -1; s.t = 0; }
-      if (s.e < 0) continue; s.t += 0.012 * s.s * (ts - (CB.pt || ts)) / 16; const ed = g.hubsE[s.e]; if (!ed) continue;
-      const A = N[ed[0]], B = N[ed[1]], q = Math.min(1, s.t), x = A.x + (B.x - A.x) * q, y = A.y + (B.y - A.y) * q;
-      const sg = ctx.createRadialGradient(x, y, 0, x, y, 9); sg.addColorStop(0, "rgba(255,255,255,.95)"); sg.addColorStop(0.3, "rgba(190,140,255,.7)"); sg.addColorStop(1, "rgba(155,92,255,0)");
-      ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(x, y, 9, 0, 6.2832); ctx.fill();
-    }
-  }
-  CB.pt = ts;
-  // nodos
-  const byCol = {};
-  for (const n of N) {
-    if (n.hub || n.t === "core") continue;
-    const on = cbMatch(n, f) && (!hl || hl.has(n.i)), col = n.t === "grp" ? "#d9c2ff" : n.t === "foto" ? CBC.foto : n.baja ? CBC.baja : n.st === "presente" ? CBC.si : n.st === "no_esta" ? CBC.no : CBC.pen;
-    const k = col + (on ? "1" : "0"); (byCol[k] || (byCol[k] = [])).push(n);
-  }
-  for (const k in byCol) {
-    const on = k.endsWith("1"), col = k.slice(0, -1); ctx.fillStyle = col; ctx.globalAlpha = on ? 0.95 : 0.1;
-    ctx.beginPath(); for (const n of byCol[k]) { const r = Math.max(n.r, 0.9 / v.k) * (on && CB.motion ? 1 + 0.18 * Math.sin(t * 1.6 + n.ph) : 1); ctx.moveTo(px(n) + r, py(n)); ctx.arc(px(n), py(n), r, 0, 6.2832); } ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-  // centros (con halo)
-  for (const n of N) {
-    if (!n.hub && n.t !== "core") continue;
-    const on = cbMatch(n, f) && (!hl || hl.has(n.i)), col = n.t === "core" ? CBC.core : n.t === "area" ? CBC.area : n.t === "lista" ? CBC.lista : CBC.per;
-    const pu = CB.motion ? 1 + 0.12 * Math.sin(t * 1.3 + n.ph) : 1, r = n.r * pu, x = px(n), y = py(n);
-    ctx.globalAlpha = on ? 1 : 0.18;
-    const hg = ctx.createRadialGradient(x, y, r * 0.4, x, y, r * (n.t === "core" ? 4.5 : 3)); hg.addColorStop(0, col + "aa"); hg.addColorStop(1, col + "00"); ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(x, y, r * (n.t === "core" ? 4.5 : 3), 0, 6.2832); ctx.fill();
-    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
-    if (n.t === "per" && n.fin) { ctx.strokeStyle = CBC.si; ctx.lineWidth = 1.2 / v.k + 0.6; ctx.beginPath(); ctx.arc(x, y, r + 2.2, 0, 6.2832); ctx.stroke(); }
-    if (n.t === "lista") { ctx.strokeStyle = "#fff"; ctx.lineWidth = 0.9; ctx.strokeRect(x - r * 0.5, y - r * 0.5, r, r); }
-  }
-  ctx.globalAlpha = 1;
-  if (sel >= 0) { const n = N[sel], x = px(n), y = py(n), r = (n.hub ? n.r : n.r + 2) + 4 + (CB.motion ? Math.sin(t * 4) : 0); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.6 / v.k + 0.4; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.stroke(); }
-  // etiquetas
-  ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  const lab = (n, fs, col) => { if (n.i === sel || (!cbMatch(n, f))) return; ctx.font = "600 " + fs / v.k + "px system-ui,sans-serif"; ctx.fillStyle = col; const w = ctx.measureText(n.label).width; ctx.fillText(n.label, px(n), py(n) + n.r + 9 / v.k); };
-  const k = v.k / (CB.fitK || 1);
-  if (k > 1.5) for (const n of N) if (n.t === "area" && n.n > 30) lab(n, 10, "rgba(255,170,200,.95)");
-  if (k > 2.6) for (const n of N) if (n.t === "per" && n.n > 25) lab(n, 10, "rgba(225,205,255,.95)");
-  if (k > 1.0) for (const n of N) if (n.t === "lista") lab(n, 10, "rgba(255,225,140,.95)");
-  if (sel >= 0) { const n = N[sel]; ctx.font = "700 " + 12 / v.k + "px system-ui,sans-serif"; ctx.fillStyle = "#fff"; ctx.fillText(n.t === "art" ? "Marbete " + n.label : n.label, px(n), py(n) - (n.hub ? n.r : n.r + 2) - 9 / v.k); }
-}
-function cbLoop(ts) {
-  CB.raf = 0;
-  if (!CB.cv || !CB.cv.isConnected) return;
-  if (!CB.t0) CB.t0 = ts;
-  const need = CB.motion || CB.dirty || (CB.intro && ts - CB.t0 < 1800);
-  if (document.visibilityState === "visible" && need && ts - CB.last >= (CB.motion ? 30 : 0)) { CB.last = ts; CB.dirty = false; cbDraw(ts); if (CB.intro && ts - CB.t0 >= 1800) CB.intro = 0; }
-  CB.raf = requestAnimationFrame(cbLoop);
-}
-const cbKick = () => { CB.dirty = true; if (!CB.raf) CB.raf = requestAnimationFrame(cbLoop); };
-function cbResize() {
-  const cv = CB.cv, bx = cv.parentElement.getBoundingClientRect(); if (!bx.width) return;
-  CB.dpr = Math.min(2, window.devicePixelRatio || 1); const first = !CB.w;
-  CB.w = bx.width; CB.h = bx.height; cv.width = Math.round(CB.w * CB.dpr); cv.height = Math.round(CB.h * CB.dpr);
-  if (first || CB.refit) { cbFit(); CB.refit = false; }
-  cbKick();
-}
-const cbWorld = (sx, sy) => [(sx - CB.v.x) / CB.v.k, (sy - CB.v.y) / CB.v.k];
-function cbHit(sx, sy) {
-  const g = CB.g, [wx, wy] = cbWorld(sx, sy), e = CB.intro ? 1 : 1, tol = 16 / CB.v.k; let best = -1, bd = 1e9;
-  for (const n of g.N) { if (!cbMatch(n, CB.f)) continue; const d = Math.hypot(n.x * e - wx, n.y * e - wy) - (n.hub ? n.r : 0) * 0.5; if (d < tol && d < bd) { bd = d; best = n.i; } }
-  return best;
-}
-function cbInfo() {
-  const el = $("cbInfo"); if (!el) return; const n = CB.sel >= 0 ? CB.g.N[CB.sel] : null;
-  if (!n) { const c = CB.g.counts; el.innerHTML = `<b>${fmtN(c.art)} artículos · ${fmtN(c.per)} resguardantes · ${fmtN(c.area)} áreas</b><small>${fmtN(c.lista)} ${c.lista === 1 ? "lista" : "listas"} de baja · ${fmtN(c.foto)} ${c.foto === 1 ? "foto" : "fotos"} · ${fmtN(c.e)} conexiones. Toca un punto para abrirlo.</small>`; el.classList.remove("sel"); return; }
-  let t = "", s = "", act = "", lab = "Abrir";
-  if (n.t === "art") { const x = vaRows().find((r) => r.tok === n.tok); t = "Marbete " + n.label; s = (x ? descOf(n.tok) + " · " + (x.own === C.SIN ? "sin resguardante" : tcase(x.own)) + " · " + ({ presente: "presente", no_esta: "no está", pendiente: "sin revisar" })[x.rev] : "") + (n.baja ? " · en baja" : "") + (n.foto ? " · con foto" : ""); act = "cbopen"; }
-  else if (n.t === "per") { t = n.label; s = `${fmtN(n.n)} bienes · ${fmtN(n.si)} presentes · ${fmtN(n.no)} no están · ${n.fin ? "inventario terminado" : "sin terminar"}`; act = "cbopen"; lab = "Abrir resguardante"; }
-  else if (n.t === "area") { t = n.label; s = `${fmtN(n.n)} bienes · ${fmtN(n.si)} presentes · ${fmtN(n.no)} no están`; act = "cbopen"; lab = "Abrir salón"; }
-  else if (n.t === "grp") { t = n.label; s = `${fmtN(n.n)} bienes de ${(CB.g.N[n.par] || {}).label} · ${fmtN(n.si)} presentes · ${fmtN(n.no)} no están`; act = "cbopen"; lab = "Abrir resguardante"; }
-  else if (n.t === "lista") { t = n.label; s = `Lista de bajas · ${fmtN(n.n)} bienes`; act = "cbopen"; lab = "Abrir lista"; }
-  else if (n.t === "foto") { t = "Foto del marbete " + (CB.g.N[n.par] || {}).label; s = "Evidencia fotográfica"; act = "cbopen"; lab = "Ver el bien"; }
-  else { t = "Inventario CONALEP Chetumal"; s = `${fmtN(CB.g.counts.art)} artículos conectados`; }
-  el.classList.add("sel");
-  el.innerHTML = `<span class="t"><b>${esc(t)}</b><small>${esc(s)}</small></span>${act ? `<button type="button" class="btn pri sm" data-act="${act}">${esc(lab)}</button>` : ""}<button type="button" class="btn sm" data-act="cbfocus" aria-label="Centrar">${ic("pin")}</button>`;
-}
+const CB = { ctl: null, sig: "" };
 VIEWS.cerebro = {
   root: false,
   head: () => ({ t: "Cerebro", s: "Todo el inventario conectado", back: true }),
   mount(pg) {
-    this.pg = pg; pg.classList.add("cb-pg"); CB.f = "all"; CB.sel = -1; CB.w = 0; CB.t0 = 0; CB.motion = FX.motion; CB.intro = FX.motion ? 1 : 0;
-    pg.innerHTML = `<div class="cb"><canvas id="cbCv" aria-label="Red del inventario: resguardantes, áreas, artículos, listas de baja y fotos" role="img"></canvas>
-      <div class="cb-top" id="cbChips">${[["all", "Todo"], ["si", "Presentes"], ["no", "No están"], ["pen", "Sin revisar"], ["baja", "Bajas"], ["foto", "Fotos"]].map(([k, l]) => `<button type="button" class="${k === "all" ? "on" : ""}" data-act="cbf" data-k="${k}">${l}</button>`).join("")}</div>
-      <div class="cb-ld" id="cbLd">${ic("sync")}<span>Conectando el inventario…</span></div>
-      <div class="cb-info" id="cbInfo"></div>
-      <div class="cb-tools"><button type="button" class="hdr-b" data-act="cbzoom" data-d="1" aria-label="Acercar">${ic("plus")}</button><button type="button" class="hdr-b" data-act="cbzoom" data-d="-1" aria-label="Alejar"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button><button type="button" class="hdr-b" data-act="cbfit" aria-label="Ver todo">${ic("pin")}</button></div></div>`;
-    CB.cv = $("cbCv");
-    // se construye en el siguiente cuadro para que la pantalla aparezca de inmediato
-    setTimeout(() => {
-      if (!CB.cv || !CB.cv.isConnected) return;
-      try { cbBuild(); } catch (e) { console.error(e); $("cbLd").innerHTML = `${ic("alert")}<span>No se pudo armar la red.</span>`; return; }
-      $("cbLd").remove(); cbResize(); cbFit(); cbInfo(); CB.t0 = 0; cbKick();
-    }, 30);
-    cbBind(); if (!CB.ro && "ResizeObserver" in window) { CB.ro = new ResizeObserver(() => { if (CB.cv && CB.cv.isConnected) cbResize(); }); }
-    if (CB.ro) CB.ro.observe(pg);
+    this.pg = pg; pg.classList.add("cb-pg");
+    if (!window.Cerebro) { pg.innerHTML = `<div class="empty">No se pudo cargar el Cerebro. Cierra y abre la app con internet.</div>`; return; }
+    try {
+      CB.ctl = Cerebro.mount(pg, cbData(), {
+        st: [{ l: "Sin revisar", c: "#c8b4ff" }, { l: "Presentes", c: "#4df0c8" }, { l: "No están", c: "#ff6b9a" }], motion: FX.motion, nf: fmtN,
+        onOpen: (kind, key) => { if (kind === "per") go("per", key); else if (kind === "area") go("room", key); else if (kind === "lista") go("bajalista", key); else if (kind === "item") openItem(key, ""); },
+      }); CB.sig = cbSig();
+    } catch (e) { console.error(e); pg.innerHTML = `<div class="empty">No se pudo armar el Cerebro.</div>`; }
   },
   update() {
-    if (!CB.g || !CB.cv || !CB.cv.isConnected) return;
-    const s = cbSig(); if (s === CB.sig || Date.now() - (CB.ub || 0) < 8000) return; CB.ub = Date.now();
-    const keep = { ...CB.v }, sel = CB.sel >= 0 ? CB.g.N[CB.sel] : null;
-    cbBuild(); CB.v = keep; CB.sel = sel ? CB.g.N.findIndex((n) => n.t === sel.t && n.label === sel.label && n.tok === sel.tok) : -1; cbInfo(); cbKick();
+    if (!CB.ctl) return; const s = cbSig(); if (s === CB.sig || Date.now() - (CB.ub || 0) < 8000) return; CB.ub = Date.now(); CB.sig = s; try { CB.ctl.setData(cbData()); } catch (e) {}
   },
 };
-function cbBind() {
-  const cv = CB.cv; CB.ptr = new Map(); CB.pinch = 0;
-  const pos = (e) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
-  const zoomAt = (sx, sy, nk) => { const v = CB.v, k0 = v.k, mn = (CB.fitK || 1) * 0.6, mx = (CB.fitK || 1) * 40; nk = Math.max(mn, Math.min(mx, nk)); v.x = sx - ((sx - v.x) / k0) * nk; v.y = sy - ((sy - v.y) / k0) * nk; v.k = nk; cbKick(); };
-  CB.zoomAt = zoomAt;
-  cv.addEventListener("pointerdown", (e) => { if (!CB.g) return; cv.setPointerCapture(e.pointerId); CB.ptr.set(e.pointerId, pos(e)); CB.moved = 0; if (CB.ptr.size === 2) { const [a, b] = [...CB.ptr.values()]; CB.pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); } });
-  cv.addEventListener("pointermove", (e) => {
-    if (!CB.ptr.has(e.pointerId)) return; const p = pos(e), o = CB.ptr.get(e.pointerId); CB.ptr.set(e.pointerId, p);
-    if (CB.ptr.size === 1) { CB.v.x += p[0] - o[0]; CB.v.y += p[1] - o[1]; CB.moved += Math.abs(p[0] - o[0]) + Math.abs(p[1] - o[1]); cbKick(); }
-    else if (CB.ptr.size === 2) { const [a, b] = [...CB.ptr.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (CB.pinch) zoomAt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, CB.v.k * (d / CB.pinch)); CB.pinch = d; CB.moved += 10; }
-  });
-  const up = (e) => {
-    if (!CB.ptr.has(e.pointerId)) return; const was = CB.ptr.size; const p = CB.ptr.get(e.pointerId); CB.ptr.delete(e.pointerId); CB.pinch = 0;
-    if (was === 1 && CB.moved < 8 && e.type === "pointerup") { const h = cbHit(p[0], p[1]); CB.sel = h; FX.hit("tap"); cbInfo(); cbKick(); }
-  };
-  cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
-  cv.addEventListener("wheel", (e) => { e.preventDefault(); const [x, y] = pos(e); zoomAt(x, y, CB.v.k * Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
-  cv.addEventListener("dblclick", (e) => { const [x, y] = pos(e); zoomAt(x, y, CB.v.k * 2); });
-}
 
 // ---- v18: Herramientas (catálogo de lo que viene) ----
 const HT = [
@@ -3434,19 +3188,7 @@ Object.assign(A, {
   tools: () => goView("tools"),
   htpri: (el) => { const v = VIEWS.tools; v.pr[el.dataset.k] = !v.pr[el.dataset.k]; try { localStorage.setItem("ht_pri", JSON.stringify(v.pr)); } catch (e) {} v.draw(); },
   cerebro: () => goView("cerebro"),
-  cbf: (el) => { CB.f = el.dataset.k; CB.sel = -1; document.querySelectorAll("#cbChips button").forEach((b) => b.classList.toggle("on", b === el)); FX.hit("tap"); cbInfo(); cbKick(); },
-  cbzoom: (el) => CB.zoomAt && CB.zoomAt(CB.w / 2, CB.h / 2, CB.v.k * (+el.dataset.d > 0 ? 1.5 : 1 / 1.5)),
-  cbfit: () => { cbFit(); CB.sel = -1; cbInfo(); cbKick(); },
-  cbfocus: () => { const n = CB.sel >= 0 && CB.g.N[CB.sel]; if (!n) return; const k = Math.max(CB.v.k, (CB.fitK || 1) * (n.hub ? 3 : 8)); CB.v.k = k; CB.v.x = CB.w / 2 - n.x * k; CB.v.y = CB.h / 2 - n.y * k; cbKick(); },
-  cbopen: () => {
-    const n = CB.sel >= 0 && CB.g.N[CB.sel]; if (!n) return;
-    if (n.t === "per") go("per", n.name);
-    else if (n.t === "area") go("room", n.name);
-    else if (n.t === "grp") go("per", CB.g.N[n.par].name);
-    else if (n.t === "lista") go("bajalista", n.id);
-    else if (n.tok) openItem(n.tok, "");
-  },
 });
 
-window.__app = { CB, cbBuild, cbDraw, cbInfo, bajaAuto, listaTxt, listaCSV, fotosData, burstStart, bajaPut, bajaOut, vzClean, vzChunks, vzPickVoice, IOS, vaChatType, bajaTxt, bajaCSV, vaTool, vaRows, VA, vaFindName, bajasData, bajaSet, bajaQuita, bajaParse, vaChatOpen, vaChatHear, vaGreet, tab, VIEWS, A, layers: () => L.map((x) => x.id), sheet, etaMins, etaTxt, DIAG, S, C, sync: C.sync, pull: C.pull, addOp: C.addOp, listFor: C.listFor, U, SET, processCode, go, G };
+window.__app = { CB, bajaAuto, listaTxt, listaCSV, fotosData, burstStart, bajaPut, bajaOut, vzClean, vzChunks, vzPickVoice, IOS, vaChatType, bajaTxt, bajaCSV, vaTool, vaRows, VA, vaFindName, bajasData, bajaSet, bajaQuita, bajaParse, vaChatOpen, vaChatHear, vaGreet, tab, VIEWS, A, layers: () => L.map((x) => x.id), sheet, etaMins, etaTxt, DIAG, S, C, sync: C.sync, pull: C.pull, addOp: C.addOp, listFor: C.listFor, U, SET, processCode, go, G };
 })();
