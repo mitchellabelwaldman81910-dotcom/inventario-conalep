@@ -15,10 +15,10 @@ const MODELOS = [process.env.VOZ_MODELO, "claude-haiku-5-5", "claude-sonnet-5-5"
 const ACC_REVISION = ["marcar", "siguiente", "repetir", "anterior", "deshacer", "donde", "detalles", "valor", "avance", "pendientes", "ayuda", "pausa", "terminar", "ir_marbete", "buscar", "ir_area", "contar", "nota", "responder"];
 const ACC_LIBRE = ["responder", "ir_persona", "revisar_persona", "abrir_articulo", "ir_area", "terminar", "pausa", "repetir", "ayuda", "marcar_articulo", "proponer_baja", "quitar_baja", "abrir_seccion", "deshacer"];
 const MOTIVOS = ["dano", "obsoleto", "desecho", "robo", "donacion", "otro"];
-const SECCIONES = ["inicio", "buscar", "actividad", "mas", "salones", "escanear", "bajas", "ayuda"];
-const SUBBAJAS = ["resumen", "propuestas", "sugeridas", "ya_en_baja", "buscar"];
+const SECCIONES = ["inicio", "buscar", "actividad", "mas", "salones", "escanear", "bajas", "fotos", "fechas", "cerebro", "herramientas", "ayuda"];
+const SUBBAJAS = ["resumen", "listas", "propuestas", "sugeridas", "ya_en_baja", "buscar"];
 const ACCIONES = [...new Set([...ACC_REVISION, ...ACC_LIBRE])];
-const OPS = ["resumen", "contar", "listar", "agrupar", "articulo", "nombres"];
+const OPS = ["resumen", "contar", "listar", "agrupar", "articulo", "nombres", "bajas", "fechas", "fotos"];
 
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
@@ -51,6 +51,9 @@ HERRAMIENTAS
    - "listar": ejemplos de artículos que cumplen los filtros (ordenar valor_desc / valor_asc / marbete; limite hasta 15).
    - "agrupar": cuenta y suma por area, resguardante, tipo (qué es el artículo), marca, revision o condicion.
    - "articulo": todos los datos de un marbete (incluye "nota": si empieza con "BAJA ·" ya tiene baja propuesta).
+   - "bajas": las listas de baja que armó el equipo (nombre, estado, fecha de baja, folio, responsable, cuántos bienes, valor, motivos). Con filtros.texto buscas una lista por nombre; con filtros.marbete ves en qué lista está un bien.
+   - "fechas": cuándo se terminó el inventario de cada persona (fecha de inicio y de fin) y cuándo se completó cada área; con filtros.resguardante o filtros.area acotas. Úsala para «¿cuándo se terminó el inventario de…?».
+   - "fotos": cuántas fotos hay, por tipo y por día, cuántos bienes tienen foto y de cuáles faltan; con filtros.marbete ves las de un bien.
    - "nombres": busca nombres reales de áreas o resguardantes parecidos a lo que dijo la persona. Úsala antes de filtrar si no estás seguro de cómo se escribe un nombre.
    - Filtros: texto (palabras del artículo, "silla", "monitor lenovo"), marbete, area, resguardante, revision (presente | no_esta | pendiente | revisado), condicion (B bueno, R regular, M malo), valor_min, valor_max, sin_serie, sin_marca, sin_resguardante.
    - Puedes hacer varias consultas seguidas (máximo ${MAX_RONDAS}). Si el resultado no alcanza, di qué falta; no inventes.
@@ -62,9 +65,9 @@ REGLAS DE accion
 - Acciones de la lista de revisión (siguiente, anterior, repetir, deshacer, donde, detalles, valor, avance, pendientes, ayuda, pausa, terminar, ir_marbete, buscar, ir_area, contar, nota): solo si lo pide claramente. "terminar" y "pausa" nunca por una duda.
 - Conversación libre (puedes hacer cambios reales en el inventario):
   · "marcar_articulo": marca un artículo (estado si = presente / no = no está, condicion B/R/M solo si la dijo, nota opcional). Necesitas el marbete en dígitos: si dicen "este artículo" o "el que acabo de abrir" usa contexto.articulo_abierto; si hablaban de un artículo en la conversación previa, usa ese; si no sabes cuál, pregunta con "responder". Si el marbete lo dijo la persona o viene del contexto de forma clara, antes de marcar confirma que existe con consultar/articulo (así dices su descripción). seguro=true solo si no hay duda de cuál artículo y qué estado; si hay duda seguro=false (la app pedirá confirmación). En "decir" confirma lo que hiciste, breve ("Listo, el 730 390, silla de paleta, quedó como no está").
-  · "proponer_baja": propone dar de baja un artículo (marbete, motivo: dano = dañado sin reparación, obsoleto, desecho = inservible, robo = robo o extravío, donacion, otro; nota = detalle que dijo). Si no dijeron el motivo, pregúntalo antes con "responder". Una baja de robo/extravío deja el artículo como "no está"; las demás como presente en mal estado.
+  · "proponer_baja": propone dar de baja un artículo (marbete, motivo: dano = dañado sin reparación, obsoleto, desecho = inservible, robo = robo o extravío, donacion, otro; nota = detalle que dijo). Si no dijeron el motivo, pregúntalo antes con "responder". Si mencionan una lista de bajas (por ejemplo «ponlo en la lista de cómputo»), pon su nombre en "lista"; si no dicen ninguna, se usa la última lista que usaron (o se crea una). Una baja de robo/extravío deja el artículo como "no está"; las demás como presente en mal estado.
   · "quitar_baja": retira la propuesta de baja de un artículo. "deshacer": revierte lo último que tú cambiaste en esta conversación.
-  · "abrir_seccion": lleva a una pantalla (seccion: inicio, buscar, actividad, mas, salones, escanear, bajas, ayuda; en bajas puedes poner subseccion: resumen, propuestas, sugeridas, ya_en_baja, buscar).
+  · "abrir_seccion": lleva a una pantalla (seccion: inicio, buscar, actividad, mas, salones, escanear, bajas, fotos, fechas, cerebro, ayuda; en bajas puedes poner subseccion: resumen, listas, propuestas (las que aún no están en una lista), sugeridas, ya_en_baja, buscar).
   · "revisar_persona" (empezar la revisión por voz de una persona), "ir_persona" (abrir su pantalla), "ir_area" (abrir un salón/oficina), "abrir_articulo" (marbete). Antes de usarlas, confirma el nombre exacto con "nombres" si hay duda. Si hay varios parecidos, pregunta cuál con "responder".
   · NUNCA cambies datos si la persona solo pregunta o comenta. Nunca cambies más de un artículo por turno. No finalices inventarios ni borres nada: eso se hace en la pantalla.
 - En conversación libre tienes "conversacion_previa" (los últimos turnos) para entender "y ese?", "el mismo", "y cuánto vale?".
@@ -82,6 +85,7 @@ MANUAL DE LA APP (Android/iPhone, funciona sin internet; todo se guarda primero 
 - Buscar: por marbete, descripción, marca, serie, área o persona; también escanear para consultar sin marcar. Tú también puedes buscar y contestar sobre todo el inventario.
 - Traslados: en la ficha, "Trasladar a otro resguardante"; al escanear un bien de otro aparece "Trasladar aquí y marcar ✓". Se ven en la bitácora del portal.
 - Bajas (pantalla "Bajas", en Inicio, Más y la ficha de cada bien): proponer la baja de un bien con motivo (dañado sin reparación, obsoleto, desecho o inservible, robo o extravío, donación o entrega, otro) y un detalle. Secciones: Resumen (totales, por motivo, por área, copiar/compartir/descargar la lista para Excel), Propuestas (las que se hicieron desde la app), Sugeridas (bienes en estado malo o que no están y aún sin baja propuesta), Ya en baja (los que la lista maestra ya trae como BAJA, solo consulta) y Buscar (cualquier artículo). La propuesta se guarda en las observaciones del artículo y viaja al portal. La baja oficial se tramita fuera de la app.
+- Fotos (Inicio y Más): todas las fotos por día, con filtros por tipo (general, etiqueta, número de serie, daño, para baja), búsqueda, pestaña "Faltan" (bienes de baja, que no están o dañados sin foto) y sello con marbete, fecha y hora. Cerebro (Inicio y Más): el inventario completo como una red morada y viva (centro, áreas, resguardantes, artículos, listas de baja y fotos); se mueve, se acerca y al tocar un punto se abre. Fechas (Inicio y Más): línea de tiempo con inventarios terminados, salones completos, bajas y fotos. En Bajas ahora hay listas propias: nombre, estado (borrador, propuesta, autorizada, dada de baja, cancelada), fecha de baja, folio, responsable, motivo, detalle y fecha por bien, fotos de evidencia, impresión de la relación de bajas con firmas, copiar, compartir y CSV.
 - Actividad: lo revisado hoy, ritmo por hora e historial de cambios.
 - Más: ayuda, bajas, envíos al portal, actualizar inventario, tamaño del texto, tema, sonidos, tonos del escáner, vibración, firma al finalizar, voz con IA, instalar la app, liberar espacio de fotos, estado de la app, cerrar sesión (borra los datos del teléfono; antes revisa que diga Todo enviado).
 - Sin internet: todo se guarda y se envía solo al volver la señal. Si algo choca con el cambio de otra persona, se resuelve en Envíos.
@@ -104,6 +108,7 @@ const T_ACCION = {
       texto: { type: "string", description: "Para buscar, ir_area, contar, ir_persona y revisar_persona." },
       nota: { type: "string", description: "Observación para guardar con el artículo (en proponer_baja: el detalle)." },
       motivo: { type: "string", enum: MOTIVOS, description: "Solo para proponer_baja." },
+      lista: { type: "string", description: "Solo para proponer_baja: nombre de la lista de bajas donde ponerlo." },
       seccion: { type: "string", enum: SECCIONES, description: "Solo para abrir_seccion." },
       subseccion: { type: "string", enum: SUBBAJAS, description: "Solo para abrir_seccion con seccion=bajas." },
       decir: { type: "string", description: "Lo que la app dirá en voz alta, en lenguaje hablado, sin formato." },
@@ -161,6 +166,7 @@ export function sanea(inp, modo = "revision") {
   if (inp.accion === "proponer_baja") {
     if (!MOTIVOS.includes(inp.motivo)) return null;
     o.motivo = inp.motivo;
+    if (inp.lista) o.lista = limpia(inp.lista, 120);
   }
   if (inp.accion === "abrir_seccion") {
     if (!SECCIONES.includes(inp.seccion)) return null;

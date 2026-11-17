@@ -5,7 +5,7 @@
 "use strict";
 // acentos solo para mostrar (el Excel viene en MAYÚSCULAS sin acentos); ver acentos.js
 const accent = (t) => (typeof window.acentuar === "function" ? window.acentuar(t) : t);
-const VERSION = "16.0";
+const VERSION = "18.0";
 const TK = "cnlp_token", UK = "cnlp_user";
 const SIN = "(Sin resguardante)";
 const clean = (v) => String(v ?? "").replace(/\s+/g, " ").trim();
@@ -47,7 +47,7 @@ const fotoAll = () => tx("fotos", "readonly", (s) => s.getAll()).catch(() => [])
 
 /* ---------- estado ---------- */
 const S = {
-  tok: "", user: "", inv: null, marks: {}, ops: [], moves: { out: {}, inn: {} }, fotos: {}, fidx: [], log: [],
+  tok: "", user: "", inv: null, marks: {}, ops: [], moves: { out: {}, inn: {} }, fotos: {}, fidx: [], log: [], bajas: {}, bajasEff: {},
   syncing: false, lastSync: 0, lastPull: 0, noStore: false, pm: new Map(), po: new Map(), pex: {}, authLost: false, err: "",
 };
 const subs = [];
@@ -66,7 +66,7 @@ const row = (tok) => S.inv?.i?.[tok];
 
 /* ---------- lo pendiente se ve encima de lo guardado ---------- */
 function rebuildPending() {
-  S.pm = new Map(); S.po = new Map(); S.pex = {};
+  S.pm = new Map(); S.po = new Map(); S.pex = {}; rebuildBajas();
   for (const o of S.ops) {
     if (o.type === "mark") S.pm.set(o.name + "\u0000" + o.tok, o);
     else if (o.type === "move") S.po.set(o.tok, o.to);
@@ -113,8 +113,9 @@ function areas() {
     const a = areaKey(tok); let x = g.get(a); if (!x) g.set(a, (x = { name: a, total: 0, si: 0, no: 0, ppl: new Set() }));
     const o = nm(rawOwner(tok)); x.total++; x.ppl.add(o);
     const m = getMark(o, tok); if (m?.e === "si") x.si++; else if (m?.e === "no") x.no++;
+    if (m?.at) { if (!x.last || m.at > x.last) x.last = m.at; if (!x.first || m.at < x.first) x.first = m.at; }
   }
-  return [...g.values()].map((x) => ({ name: x.name, total: x.total, si: x.si, no: x.no, rev: x.si + x.no, people: x.ppl.size })).sort((a, b) => a.name.localeCompare(b.name, "es"));
+  return [...g.values()].map((x) => ({ name: x.name, total: x.total, si: x.si, no: x.no, rev: x.si + x.no, people: x.ppl.size, last: x.last || 0, first: x.first || 0 })).sort((a, b) => a.name.localeCompare(b.name, "es"));
 }
 function areaSummary(area) {
   const own = []; for (const tok in S.inv.i) if (areaKey(tok) === area) own.push(tok);
@@ -128,6 +129,7 @@ function totals() {
   for (const x of gs) { t.total += x.total; t.si += x.si; t.no += x.no; if (x.fin) t.fin++; if (x.rev) t.started++; }
   t.rev = t.si + t.no; return t;
 }
+const inicioOf = (name) => { const d = S.marks[nameKey(name)]; return d && d.name === name ? d.inicio || 0 : 0; };
 function summaryOf(name) {
   const { own, gone } = listFor(name);
   const si = [], no = [], pend = [], reg = [], mal = [];
@@ -205,9 +207,11 @@ async function pull() {
   const marks = {}; for (const d of mk.docs || []) marks[d.id] = d.data;
   realTimes(marks);
   let fotos = S.fotos; try { const f = await db({ op: "list", collection: "fotos" }); fotos = Object.fromEntries((f.docs || []).map((d) => [d.id, d.data])); } catch (e) { if (e.net || e.auth) throw e; }
+  let bajas = S.bajas; try { const b = await db({ op: "list", collection: "bajas" }); bajas = Object.fromEntries((b.docs || []).map((d) => [d.id, d.data])); } catch (e) { if (e.net || e.auth) throw e; }
+  S.bajas = bajas;
   S.inv = { h: meta.h, i, at: Date.now() }; S.marks = marks; S.fotos = fotos; S.lastPull = Date.now();
   cols(); rebuildPending();
-  await kvSet("inv", S.inv).catch(() => {}); await kvSet("marks", S.marks).catch(() => {}); kvSet("fotosIdx", S.fotos).catch(() => {});
+  await kvSet("inv", S.inv).catch(() => {}); await kvSet("marks", S.marks).catch(() => {}); kvSet("fotosIdx", S.fotos).catch(() => {}); kvSet("bajas", S.bajas).catch(() => {});
   emit("data");
   return true;
 }
@@ -298,11 +302,12 @@ async function sync() {
       } catch (e) { if (e.net || e.auth) throw e; op.err = e.message; await saveOps(); }
     }
     await syncMarks(S.ops.filter((o) => ["mark", "extra", "fin"].includes(o.type)));
+    await syncBajas(S.ops.filter((o) => o.type === "baja" && !o.err));
     for (const op of S.ops.filter((o) => o.type === "foto")) {
       const f = await fotoGet(op.fid);
       if (!f) { S.ops = S.ops.filter((o) => o.id !== op.id); await saveOps(); continue; }
       try {
-        await api("foto-put", { tok: op.tok, id: op.fid, data: f.data });
+        await api("foto-put", { tok: op.tok, id: op.fid, data: f.data, tipo: f.tipo || "general", nota: f.nota || "" });
         f.sent = true; await fotoSet(op.fid, f);
         const fi = S.fidx.find((x) => x.fid === op.fid); if (fi) { fi.sent = true; saveFidx(); }
         S.ops = S.ops.filter((o) => o.id !== op.id); await saveOps();
@@ -383,24 +388,65 @@ function resNames() { const s = new Set(); for (const t in S.inv.i) { const n = 
 
 /* ---------- fotos ---------- */
 function saveFidx() { kvSet("fidx", S.fidx).catch(() => {}); }
-async function shrink(file) {
+const FOTO_TIPOS = [["general", "General"], ["etiqueta", "Etiqueta"], ["serie", "N.º de serie"], ["dano", "Daño"], ["baja", "Para baja"], ["otro", "Otra"]];
+async function shrink(file, stamp) {
   let bmp;
   try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" }); }
   catch (e) { bmp = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = URL.createObjectURL(file); }); }
   const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight, k = Math.min(1, 1280 / Math.max(w0, h0));
   const c = document.createElement("canvas"); c.width = Math.round(w0 * k); c.height = Math.round(h0 * k);
-  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  const g = c.getContext("2d"); g.drawImage(bmp, 0, 0, c.width, c.height);
+  // sello de evidencia: marbete, fecha y hora en una franja al pie de la foto
+  if (stamp) {
+    const fs = Math.max(13, Math.round(Math.min(c.width, c.height) / 34)), pad = Math.round(fs * 0.5);
+    g.font = "600 " + fs + "px system-ui, sans-serif"; g.textBaseline = "middle";
+    const lines = String(stamp).split("\n"), hh = lines.length * fs * 1.25 + pad * 2;
+    g.fillStyle = "rgba(0,0,0,.58)"; g.fillRect(0, c.height - hh, c.width, hh);
+    g.fillStyle = "#fff"; lines.forEach((ln, i) => g.fillText(ln, pad, c.height - hh + pad + fs * 0.62 + i * fs * 1.25, c.width - pad * 2));
+  }
   return c.toDataURL("image/jpeg", 0.72);
 }
-async function addPhoto(tok, file) {
-  const data = await shrink(file);
+const FDIA = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+function stampText(tok, t) {
+  const d = new Date(t), p = (n) => String(n).padStart(2, "0");
+  const mb = S.inv?.i?.[tok] ? cell(S.inv.i[tok], K.MB) : "";
+  return (mb ? "Marbete " + mb + " · " : "") + p(d.getDate()) + "/" + p(d.getMonth() + 1) + "/" + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+// opts: {tipo, nota, wm}  (wm = poner el sello con marbete, fecha y hora)
+async function addPhoto(tok, file, opts) {
+  opts = opts || {}; const t = now();
+  const tipo = FOTO_TIPOS.some((x) => x[0] === opts.tipo) ? opts.tipo : "general", nota = clean(opts.nota).slice(0, 120);
+  const data = await shrink(file, opts.wm ? stampText(tok, t) : "");
   const fid = (Math.random().toString(36).slice(2, 8) + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)).replace(/[^A-Za-z0-9]/g, "");
-  const t = now();
-  await fotoSet(fid, { fid, tok, data, t, sent: false });
-  S.fidx.push({ fid, tok, t, sent: false }); saveFidx();
+  await fotoSet(fid, { fid, tok, data, t, sent: false, tipo, nota });
+  S.fidx.push({ fid, tok, t, sent: false, tipo, nota }); saveFidx();
   logAdd({ k: "ft", tok, name: owner(tok) });
   await addOp({ type: "foto", tok, fid });
   return fid;
+}
+// todas las fotos (las del portal y las que aún están en el teléfono), la más nueva primero
+function allPhotos() {
+  const out = [], seen = new Set();
+  for (const tok in S.fotos) for (const f of S.fotos[tok]?.list || []) { seen.add(f.id); out.push({ id: f.id, tok, at: f.at || 0, by: f.by || "", tipo: f.tipo || "general", nota: f.nota || "", local: false }); }
+  for (const f of S.fidx) if (!seen.has(f.fid)) out.push({ id: f.fid, tok: f.tok, at: f.t || 0, by: S.user, tipo: f.tipo || "general", nota: f.nota || "", local: true });
+  return out.filter((x) => S.inv?.i?.[x.tok]).sort((a, b) => b.at - a.at);
+}
+async function photoThumb(p) {
+  if (p.local) { const f = await fotoGet(p.id); return f?.data || ""; }
+  return serverPhoto(p.tok, p.id);
+}
+async function photoEdit(p, patch) {
+  const tipo = patch.tipo && FOTO_TIPOS.some((x) => x[0] === patch.tipo) ? patch.tipo : undefined, nota = patch.nota !== undefined ? clean(patch.nota).slice(0, 120) : undefined;
+  if (p.local) {
+    const f = await fotoGet(p.id); if (!f) return;
+    if (tipo) f.tipo = tipo; if (nota !== undefined) f.nota = nota; await fotoSet(p.id, f);
+    const fi = S.fidx.find((x) => x.fid === p.id); if (fi) { if (tipo) fi.tipo = tipo; if (nota !== undefined) fi.nota = nota; saveFidx(); }
+  } else {
+    await api("foto-edit", { tok: p.tok, id: p.id, ...(tipo ? { tipo } : {}), ...(nota !== undefined ? { nota } : {}) });
+    const e = (S.fotos[p.tok]?.list || []).find((x) => x.id === p.id);
+    if (e) { if (tipo) e.tipo = tipo; if (nota !== undefined) { if (nota) e.nota = nota; else delete e.nota; } kvSet("fotosIdx", S.fotos).catch(() => {}); }
+  }
+  emit("data");
 }
 async function localPhotos(tok) {
   const out = [];
@@ -427,6 +473,80 @@ async function freeSent() {
     await fotoDel(f.fid); S.fidx = S.fidx.filter((x) => x.fid !== f.fid); n++;
   }
   saveFidx(); return n;
+}
+
+/* ---------- listas de baja ---------- */
+// Cada lista es un documento del servidor ({nombre, estado, fecha, folio, resp, notas, items:{tok:{m,d,f}}}).
+// Los cambios hechos sin internet se guardan como operaciones y se ven encima de lo guardado.
+const BAJA_ESTADOS = [["borrador", "Borrador"], ["propuesta", "Propuesta"], ["autorizada", "Autorizada"], ["ejecutada", "Dada de baja"], ["cancelada", "Cancelada"]];
+const hoyISO = () => { const d = new Date(now()); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+const fechaOk = (x) => typeof x === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x);
+function applyBaja(map, o) {
+  const a = o.act, id = o.lid;
+  if (a === "new") { if (!map[id]) map[id] = { id, nombre: clean(o.meta?.nombre) || "Lista de bajas", estado: "borrador", fecha: "", folio: "", resp: "", notas: "", creada: o.t, by: S.user, items: {}, ...o.meta, pending: true }; return; }
+  const d = map[id]; if (!d) return;
+  d.pending = true;
+  if (a === "del") delete map[id];
+  else if (a === "meta") Object.assign(d, o.meta);
+  else if (a === "add") d.items[o.tok] = { ...(d.items[o.tok] || {}), m: o.m || "otro", d: o.d || "", f: o.f || "", at: o.t, by: S.user };
+  else if (a === "item") { if (d.items[o.tok]) Object.assign(d.items[o.tok], o.patch); }
+  else if (a === "rm") delete d.items[o.tok];
+}
+function rebuildBajas() {
+  const m = JSON.parse(JSON.stringify(S.bajas || {}));
+  for (const o of S.ops || []) if (o.type === "baja") applyBaja(m, o);
+  S.bajasEff = m;
+}
+function bajaOf(tok) { for (const id in S.bajasEff) if (S.bajasEff[id].items?.[tok]) return S.bajasEff[id]; return null; }
+const bajaList = () => Object.values(S.bajasEff).sort((a, b) => (b.creada || 0) - (a.creada || 0));
+async function bajaOp(o) { o.type = "baja"; return addOp(o); }
+async function bajaNew(meta) {
+  const lid = "b" + uid().replace(/[^A-Za-z0-9]/g, "");
+  await bajaOp({ act: "new", lid, meta: { nombre: clean(meta?.nombre).slice(0, 120) || "Lista de bajas", fecha: fechaOk(meta?.fecha) ? meta.fecha : "", folio: clean(meta?.folio).slice(0, 60), resp: clean(meta?.resp).slice(0, 80), notas: clean(meta?.notas).slice(0, 600) } });
+  logAdd({ k: "bj", name: clean(meta?.nombre) || "Lista de bajas" });
+  return lid;
+}
+async function bajaMeta(lid, patch) {
+  const p = {};
+  for (const k of ["nombre", "folio", "resp", "notas"]) if (patch[k] !== undefined) p[k] = clean(patch[k]).slice(0, k === "notas" ? 600 : 120);
+  if (patch.estado && BAJA_ESTADOS.some((e) => e[0] === patch.estado)) p.estado = patch.estado;
+  if (patch.fecha !== undefined) p.fecha = fechaOk(patch.fecha) ? patch.fecha : "";
+  return bajaOp({ act: "meta", lid, meta: p });
+}
+async function bajaDel(lid) { return bajaOp({ act: "del", lid }); }
+// un artículo solo puede estar en una lista: se saca de la que tenía
+async function bajaAdd(lid, tok, m, d, f) {
+  const prev = bajaOf(tok);
+  if (prev && prev.id !== lid) await bajaOp({ act: "rm", lid: prev.id, tok });
+  const cur = S.bajasEff[lid]?.items?.[tok];
+  return bajaOp({ act: "add", lid, tok, m: m || cur?.m || "otro", d: d !== undefined ? clean(d).slice(0, 200) : cur?.d || "", f: f !== undefined ? (fechaOk(f) ? f : "") : cur?.f || "" });
+}
+async function bajaItem(lid, tok, patch) {
+  const p = {};
+  if (patch.m) p.m = patch.m; if (patch.d !== undefined) p.d = clean(patch.d).slice(0, 200); if (patch.f !== undefined) p.f = fechaOk(patch.f) ? patch.f : "";
+  return bajaOp({ act: "item", lid, tok, patch: p });
+}
+async function bajaRm(lid, tok) { return bajaOp({ act: "rm", lid, tok }); }
+async function syncBajas(ops) {
+  const by = new Map();
+  for (const o of ops) { if (!by.has(o.lid)) by.set(o.lid, []); by.get(o.lid).push(o); }
+  for (const [lid, list] of by) {
+    const ids = list.map((o) => o.id);
+    try {
+      const d = await db({ op: "get", path: "bajas/" + lid });
+      const map = d.exists && d.data ? { [lid]: d.data } : {};
+      for (const o of list) applyBaja(map, o);
+      for (const x of Object.values(map)) delete x.pending;
+      if (map[lid]) { const r = await db({ op: "set", path: "bajas/" + lid, data: map[lid] }); S.bajas[lid] = r.doc || map[lid]; }
+      else { if (d.exists) await db({ op: "delete", path: "bajas/" + lid }); delete S.bajas[lid]; }
+      S.ops = S.ops.filter((o) => !ids.includes(o.id)); await saveOps();
+      kvSet("bajas", S.bajas).catch(() => {});
+    } catch (e) {
+      if (e.net || e.auth) throw e;
+      for (const o of S.ops) if (ids.includes(o.id)) o.err = e.message;
+      await saveOps();
+    }
+  }
 }
 
 /* ---------- cola: revisar, reintentar, descartar ---------- */
@@ -470,7 +590,7 @@ async function login(username, password) {
   S.authLost = false; await start();
 }
 async function logout() {
-  S.tok = ""; S.user = ""; S.inv = null; S.marks = {}; S.ops = []; S.moves = { out: {}, inn: {} }; S.fotos = {}; S.fidx = []; S.log = []; sx = null;
+  S.tok = ""; S.user = ""; S.inv = null; S.marks = {}; S.ops = []; S.moves = { out: {}, inn: {} }; S.fotos = {}; S.fidx = []; S.log = []; S.bajas = {}; S.bajasEff = {}; sx = null;
   try { localStorage.removeItem(TK); localStorage.removeItem(UK); } catch (e) {}
   try { await tx("kv", "readwrite", (s) => { s.clear(); }); await tx("fotos", "readwrite", (s) => { s.clear(); }); } catch (e) {}
   rebuildPending(); emit("login");
@@ -492,7 +612,7 @@ async function boot() {
   S.inv = (await kvGet("inv")) || null; S.marks = (await kvGet("marks")) || {}; S.ops = (await kvGet("ops")) || [];
   S.moves = (await kvGet("moves")) || { out: {}, inn: {} }; S.lastSync = (await kvGet("lastSync")) || 0;
   S.skew = (await kvGet("skew")) || 0; S.skewSet = false;
-  S.log = (await kvGet("log")) || []; S.fotos = (await kvGet("fotosIdx")) || {};
+  S.log = (await kvGet("log")) || []; S.fotos = (await kvGet("fotosIdx")) || {}; S.bajas = (await kvGet("bajas")) || {};
   let fi = await kvGet("fidx");
   if (!Array.isArray(fi)) { fi = (await fotoAll()).map((f) => ({ fid: f.fid, tok: f.tok, t: f.t || 0, sent: !!f.sent })); kvSet("fidx", fi).catch(() => {}); }
   S.fidx = fi;
@@ -507,7 +627,8 @@ setInterval(() => { if (!document.hidden && S.ops.length) kick(); }, 30000);
 
 window.Core = {
   areas, areaSummary, areaKey, validSig, accent, VERSION, SIN, S, K, on: (f) => subs.push(f), emit, clean, nm, nameKey, norm, money, cell, row, owner, rawOwner, getMark, listFor, groups, totals, summaryOf, finOf, search,
-  pull, sync, kick, addOp, markTo, markMany, restoreMany, toggleMark, move, addExtra, finish, resNames, addPhoto, localPhotos, photoCount, serverPhoto, freeSent,
+  pull, sync, kick, addOp, markTo, markMany, restoreMany, toggleMark, move, addExtra, finish, resNames, addPhoto, allPhotos, inicioOf, photoThumb, photoEdit, FOTO_TIPOS, localPhotos, photoCount, serverPhoto, freeSent,
+  BAJA_ESTADOS, hoyISO, bajaOf, bajaList, bajaNew, bajaMeta, bajaDel, bajaAdd, bajaItem, bajaRm,
   discard, retry, forceMove, findTok, findBySerial, parseCode, login, logout, start, boot, logAdd, logPop, api, now,
 };
 })();

@@ -1,6 +1,6 @@
 /* Guía de ayuda del inventario CONALEP: una sola fuente para la app del celular y el portal. */
 window.AYUDA = {
-  version: "16.0",
+  version: "18.0",
 
   /* Los 4 pasos de una revisión (se usan en la app, en el portal y en la guía inicial) */
   flujo: [
@@ -81,18 +81,58 @@ window.AYUDA = {
     },
     {
       id: "bajas", i: "archive", t: "Bajas de bienes",
-      q: "Proponer la baja de lo dañado, obsoleto o perdido, y llevar la lista.",
-      kw: "baja bajas dar de baja desecho dañado obsoleto robo extravio donacion inservible propuesta lista csv excel",
+      q: "Arma tus listas de baja con nombre, fecha y folio, y lleva la relación firmada.",
+      kw: "baja bajas dar de baja lista listas fecha de baja folio oficio desecho dañado obsoleto robo extravio donacion inservible propuesta imprimir relacion csv excel",
       pasos: [
         "Entra a <b>Bajas</b> desde Inicio o desde Más.",
-        "<b>Resumen:</b> cuántas hay propuestas, sugeridas y ya en baja, con su valor, por motivo y por área. Aquí copias o compartes la lista, o la descargas para Excel (CSV).",
-        "<b>Sugeridas:</b> bienes marcados en estado Malo o que <b>no están</b> y todavía sin baja. Tócalos para proponer la baja.",
-        "<b>Propuestas:</b> los que ya propusiste. Tócalos para cambiar el motivo o quitar la propuesta.",
-        "<b>Ya en baja:</b> los que la lista maestra ya trae como BAJA (en su área o resguardante). Solo se consultan.",
-        "<b>Buscar:</b> cualquier artículo por marbete, descripción o persona. También puedes tocar <b>Proponer baja de este bien</b> en la ficha de cualquier bien.",
-        "Al proponer eliges el <b>motivo</b>: dañado sin reparación, obsoleto, desecho o inservible, robo o extravío, donación o entrega, u otro; y puedes escribir un detalle."
+        "Toca <b>Nueva lista de bajas</b>: ponle nombre (por ejemplo «Bajas de cómputo · noviembre»), la <b>fecha de baja</b>, un <b>folio u oficio</b> y quién es el responsable.",
+        "Dentro de la lista toca <b>Agregar bienes</b>: elige el motivo, busca por marbete o descripción, o agrega de una vez los <b>sugeridos</b> (estado malo o «No está»).",
+        "Cada bien lleva su <b>motivo</b>, un detalle, su propia <b>fecha de baja</b> y sus <b>fotos de evidencia</b>. Un bien solo puede estar en una lista; si lo pasas a otra, se mueve.",
+        "<b>Fotografiar los que faltan</b> te enseña uno por uno los bienes de la lista que no tienen foto, para tomarlas rápido.",
+        "El <b>estado</b> de la lista va de Borrador a Propuesta, Autorizada y Dada de baja (o Cancelada). Una lista autorizada o ya dada de baja solo la borra el administrador.",
+        "<b>Imprimir la relación de bajas</b> saca una hoja con los datos, el valor y las líneas de firma. También puedes copiar, compartir o bajar la lista para Excel (CSV).",
+        "<b>Sin lista</b> muestra las propuestas de versiones anteriores para que las pongas en una lista; <b>Sugeridas</b>, lo dañado o faltante; <b>Ya en baja</b>, lo que la lista maestra ya trae como BAJA."
       ],
-      tips: ["Proponer una baja <b>no la tramita</b>: deja constancia en las observaciones del bien (empiezan con «BAJA ·») y viaja al portal con tu revisión. La baja oficial se hace fuera de la app.", "Robo o extravío deja el bien como <b>No está</b>; los demás motivos lo dejan como <b>Presente</b> en mal estado (si no lo habías marcado).", "También se hace por voz con Lua: «propón la baja del 730390 por daño»."]
+      tips: ["Proponer una baja <b>no la tramita</b>: deja constancia en las observaciones del bien (empiezan con «BAJA ·») y la lista viaja al portal. La baja oficial se hace fuera de la app.", "Las listas se guardan en el servidor: las ve cualquier teléfono. Si no hay internet, tus cambios esperan en el teléfono y se envían solos.", "Robo o extravío deja el bien como <b>No está</b>."]
+    },
+    {
+      id: "fotos", i: "camera", t: "Fotos y evidencia",
+      q: "Todas las fotos en un solo lugar, por fecha y por tipo.",
+      kw: "fotos foto camara galeria evidencia etiqueta serie dano sello fecha hora faltan sin foto tipo nota",
+      pasos: [
+        "Entra a <b>Fotos</b> desde Inicio o Más. Arriba ves cuántas hay, cuántos bienes tienen foto y cuántas faltan.",
+        "Las fotos salen <b>agrupadas por día</b>. Filtra por <b>Hoy</b>, <b>Por enviar</b> o por tipo: general, etiqueta, número de serie, daño, para baja u otra. También puedes buscar por marbete, persona o nota.",
+        "Toca una foto para verla grande, con de qué bien es, quién la tomó y cuándo. Ahí cambias su <b>tipo</b> y escribes una <b>nota</b>.",
+        "Al tomar una foto desde la ficha de un bien eliges primero <b>qué muestra</b> (etiqueta, serie, daño…).",
+        "<b>Faltan</b> lista los bienes que van a baja, que no están o están en mal estado y todavía no tienen foto; cada uno tiene su botón de cámara.",
+        "Con «Sello en las fotos» (Más) cada foto nueva lleva escrito al pie el marbete, la fecha y la hora."
+      ],
+      tips: ["Las fotos se guardan en el teléfono y se suben solas cuando hay internet; las que aún no se envían tienen un punto naranja.", "Para ahorrar espacio: Más → «Liberar espacio de fotos» (solo borra las que ya se subieron)."]
+    },
+    {
+      id: "cerebro", i: "brain", t: "Cerebro",
+      q: "Todo el inventario como una red morada que puedes explorar.",
+      kw: "cerebro red grafo mapa conexiones nodos puntos visual morado todo conectado archivos",
+      pasos: [
+        "Entra a <b>Cerebro</b> desde Inicio o Más. Verás una red: al centro el inventario, alrededor las <b>áreas</b> (rosa), los <b>resguardantes</b> (morado) y sus <b>artículos</b> (puntos pequeños).",
+        "Colores: verde agua = presente, rojo = no está, azul violeta = sin revisar, dorado = en baja, blanco = con foto. Los cuadros dorados son tus listas de baja.",
+        "Mueve la red con un dedo y acércala con dos dedos (o con los botones + y −). El botón de la esquina vuelve a mostrar todo.",
+        "<b>Toca un punto</b> para iluminar sus conexiones y ver sus datos; el botón <b>Abrir</b> te lleva a la persona, el salón, la lista o el artículo.",
+        "Los filtros de arriba (Presentes, No están, Sin revisar, Bajas, Fotos) apagan lo demás para ver solo eso."
+      ],
+      tips: ["Los resguardantes con aro verde ya terminaron su inventario.", "Se arma con lo que ya está en el teléfono, así que también funciona sin internet."]
+    },
+    {
+      id: "fechas", i: "clock", t: "Todo por fechas",
+      q: "Cuándo se terminó cada inventario, cada baja y cada foto.",
+      kw: "fechas fecha linea de tiempo cuando terminado finalizado inventariado historial calendario cierre",
+      pasos: [
+        "Entra a <b>Fechas</b> desde Inicio o Más.",
+        "Arriba ves cuántos inventarios están terminados, la fecha del último cierre y cuántas bajas se han hecho.",
+        "Abajo todo va ordenado por mes y día: inventarios terminados de cada persona, salones revisados completos, fechas de baja de cada lista y días en que se tomaron fotos. Filtra por Inventarios, Bajas o Fotos.",
+        "En cada persona, la fecha de <b>Finalizado</b> siempre se ve; y en cada salón se ve cuándo se terminó o cuál fue su último avance."
+      ],
+      tips: ["Toca cualquier renglón para abrir esa persona, ese salón, esa lista o las fotos."]
     },
     {
       id: "salon", i: "pin", t: "Revisar por salón",
@@ -544,6 +584,11 @@ window.AYUDA = {
     search: { t: "Buscar", l: ["Escribe marbete, descripción, serie, marca, área o persona.", "Toca un resultado para ver de quién es.", "El icono de escanear consulta un marbete con la cámara."], topic: "buscar" },
     act: { t: "Actividad", l: ["Lo que hiciste hoy: revisados, presentes, no están, traslados y fotos.", "Abajo está el historial completo de este teléfono."], topic: "actividad" },
     more: { t: "Más", l: ["<b>Envíos al portal</b> muestra lo que falta por enviar.", "Aquí cambias el <b>tamaño del texto</b> y el tema.", "Cierra sesión al terminar si el teléfono es compartido."], topic: "ajustes" },
+    cerebro: { t: "Cerebro", l: ["Mueve con un dedo, acerca con dos.", "Toca un punto para ver sus conexiones y abrirlo.", "Los filtros de arriba resaltan solo un grupo."], topic: "cerebro" },
+    fotos: { t: "Fotos", l: ["Todas las fotos por día. Filtra por tipo, <b>Hoy</b> o <b>Por enviar</b>.", "Toca una foto para verla, cambiar su tipo o escribir una nota.", "<b>Faltan</b> te dice a qué bienes importantes les falta foto."], topic: "fotos" },
+    linea: { t: "Fechas", l: ["Cuándo se terminó cada inventario, cada baja y cada foto.", "Toca un renglón para abrirlo."], topic: "fechas" },
+    bajas: { t: "Bajas", l: ["<b>Nueva lista de bajas</b> crea una lista con nombre, fecha y folio.", "Dentro agregas bienes, fotos y motivos.", "Imprime la relación con firmas."], topic: "bajas" },
+    bajalista: { t: "Una lista de bajas", l: ["<b>Editar datos</b> cambia estado, fecha, folio y responsable.", "<b>Agregar bienes</b> busca o agrega los sugeridos.", "<b>Fotografiar los que faltan</b> recorre los bienes sin foto."], topic: "bajas" },
     queue: { t: "Envíos al portal", l: ["Muestra lo que falta por enviar y por qué.", "<b>Enviar ahora</b> intenta mandar todo.", "Lo que está en rojo necesita tu decisión."], topic: "internet" },
     help: { t: "Ayuda", l: ["Busca una palabra o abre un tema.", "Cada tema tiene pasos cortos."], topic: "empezar" },
     rooms: { t: "Revisar por salón", l: ["Toca un salón o una oficina para ver <b>todos sus bienes</b>, de quien sean.", "Busca por nombre arriba.", "Cada marca se guarda en el resguardo de su dueño."], topic: "salon" },

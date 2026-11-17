@@ -8,8 +8,9 @@ import { fileURLToPath } from "node:url";
 
 export const config = { path: "/api/*" };
 
-const COLS = new Set(["inv", "cambios", "marcas", "fotos"]);
+const COLS = new Set(["inv", "cambios", "marcas", "fotos", "bajas"]);
 const ID_RE = /^[A-Za-z0-9_-]{1,80}$/;
+const TOK_RE = /^m[A-Za-z0-9]{1,40}$/, FID_RE = /^[A-Za-z0-9_-]{6,40}$/;
 const NB = 64;
 const TTL = 14 * 24 * 3600 * 1000; // la sesión dura 14 días
 
@@ -64,6 +65,37 @@ function parsePath(p) {
   return { col, id, key: col + "/" + id };
 }
 const isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
+
+/* ---------- listas de baja ---------- */
+const BAJA_EST = new Set(["borrador", "propuesta", "autorizada", "ejecutada", "cancelada"]);
+const BAJA_MOT = new Set(["dano", "obsoleto", "desecho", "robo", "donacion", "otro"]);
+const FOTO_TIPOS = new Set(["general", "etiqueta", "serie", "dano", "baja", "otro"]);
+const txt = (v, n) => String(v ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
+const fechaOk = (x) => {
+  if (typeof x !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(x)) return false;
+  const d = new Date(x + "T00:00:00Z");
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === x;
+};
+// el servidor deja el documento limpio y pone él mismo quién y cuándo (nadie firma como otra persona)
+function cleanBaja(d, id, user, cur) {
+  if (!isObj(d)) return null;
+  const now = Date.now();
+  const out = {
+    id, nombre: txt(d.nombre, 120) || "Lista de bajas", estado: BAJA_EST.has(d.estado) ? d.estado : "borrador",
+    fecha: fechaOk(d.fecha) ? d.fecha : "", folio: txt(d.folio, 60), resp: txt(d.resp, 80), notas: txt(d.notas, 600),
+    creada: cur?.creada || (Number.isFinite(+d.creada) && +d.creada > 0 ? Math.min(+d.creada, now) : now), by: cur?.by || user.id,
+    up: now, upby: user.id, items: {},
+  };
+  let n = 0;
+  if (isObj(d.items)) for (const [t, v] of Object.entries(d.items)) {
+    if (n >= 5000) break;
+    if (!TOK_RE.test(t) || !isObj(v)) continue;
+    const c = cur?.items?.[t];
+    out.items[t] = { m: BAJA_MOT.has(v.m) ? v.m : "otro", d: txt(v.d, 200), f: fechaOk(v.f) ? v.f : "", at: c?.at || now, by: c?.by || user.id };
+    n++;
+  }
+  return out;
+}
 function merge(dst, src) {
   for (const [k, v] of Object.entries(src)) {
     if (k === "__proto__" || k === "constructor" || k === "prototype") continue;
@@ -172,7 +204,13 @@ async function dbOp(s, user, b) {
   }
   if ((op === "delete" || op === "set" || op === "update") && p.col === "fotos")
     return fail(403, "forbidden", "Las fotos se suben con la opción de fotos");
+  if (op === "update" && p.col === "bajas") return fail(400, "invalid_argument", "Las listas de baja se guardan completas");
   if (op === "delete") {
+    if (p.col === "bajas") {
+      const cur = await getDoc(s, p.key);
+      if (cur && ["autorizada", "ejecutada"].includes(cur.estado) && !user.admin)
+        return fail(403, "forbidden", "Una lista autorizada o ya dada de baja solo la borra el administrador");
+    }
     await s.delete(p.key);
     return json({ ok: true, ...(await bump(s, p.col)) });
   }
@@ -205,6 +243,13 @@ async function dbOp(s, user, b) {
       }
     }
     let out;
+    if (p.col === "bajas") {
+      const cur = await getDoc(s, p.key);
+      out = cleanBaja(data, p.id, user, cur);
+      if (!out) return fail(400, "invalid_argument", "Datos no válidos");
+      await s.setJSON(p.key, out);
+      return json({ ok: true, doc: out, ...(await bump(s, p.col)) });
+    }
     if (op === "set") out = data;
     else {
       const cur = await getDoc(s, p.key);
@@ -230,7 +275,6 @@ async function itemOp(s, b) {
 }
 
 /* ---------- fotos (JPEG en Blobs; el índice por artículo vive en la colección "fotos") ---------- */
-const TOK_RE = /^m[A-Za-z0-9]{1,40}$/, FID_RE = /^[A-Za-z0-9_-]{6,40}$/;
 async function fotoPut(s, user, b) {
   const tok = String(b.tok || ""), id = String(b.id || "");
   if (!TOK_RE.test(tok) || !FID_RE.test(id)) return fail(400, "invalid_argument", "Datos no válidos");
@@ -246,7 +290,8 @@ async function fotoPut(s, user, b) {
   const idx = (await getDoc(s, key)) || { list: [] };
   if (idx.list.some((f) => f.id === id)) return json({ ok: true, dup: true, n: idx.list.length });
   await s.set("fotob/" + tok + "/" + id, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
-  idx.list.push({ id, at: Date.now(), by: user.id });
+  const tipo = FOTO_TIPOS.has(b.tipo) ? b.tipo : "general", nota = txt(b.nota, 120);
+  idx.list.push({ id, at: Date.now(), by: user.id, tipo, ...(nota ? { nota } : {}) });
   idx.n = idx.list.length;
   await s.setJSON(key, idx);
   return json({ ok: true, n: idx.n, ...(await bump(s, "fotos")) });
@@ -257,6 +302,16 @@ async function fotoGet(s, b) {
   const buf = await s.get("fotob/" + tok + "/" + id, { type: "arrayBuffer" });
   if (!buf) return fail(404, "not_found", "No existe esa foto");
   return new Response(buf, { status: 200, headers: { "content-type": "image/jpeg", "cache-control": "private, max-age=3600" } });
+}
+async function fotoEdit(s, user, b) {
+  const tok = String(b.tok || ""), id = String(b.id || "");
+  if (!TOK_RE.test(tok) || !FID_RE.test(id)) return fail(400, "invalid_argument", "Datos no válidos");
+  const key = "fotos/" + tok, idx = await getDoc(s, key), f = idx?.list?.find((x) => x.id === id);
+  if (!f) return fail(404, "not_found", "No existe esa foto");
+  if (FOTO_TIPOS.has(b.tipo)) f.tipo = b.tipo;
+  if (typeof b.nota === "string") { const n = txt(b.nota, 120); if (n) f.nota = n; else delete f.nota; }
+  await s.setJSON(key, idx);
+  return json({ ok: true, ...(await bump(s, "fotos")) });
 }
 async function fotoDel(s, user, b) {
   if (!user.admin) return fail(403, "forbidden", "Solo el administrador puede borrar fotos");
@@ -315,6 +370,7 @@ export default async (req) => {
     if (route === "item") return await itemOp(s, body);
     if (route === "foto-put") return await fotoPut(s, user, body);
     if (route === "foto-get") return await fotoGet(s, body);
+    if (route === "foto-edit") return await fotoEdit(s, user, body);
     if (route === "foto-del") return await fotoDel(s, user, body);
     if (route === "seed") {
       if (!user.admin) return fail(403, "forbidden", "Solo el administrador");
