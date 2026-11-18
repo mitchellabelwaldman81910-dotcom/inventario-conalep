@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 export const config = { path: "/api/*" };
 
-const COLS = new Set(["inv", "cambios", "marcas", "fotos", "bajas"]);
+const COLS = new Set(["inv", "cambios", "marcas", "fotos", "bajas", "plantillas"]);
 const ID_RE = /^[A-Za-z0-9_-]{1,80}$/;
 const TOK_RE = /^m[A-Za-z0-9]{1,40}$/, FID_RE = /^[A-Za-z0-9_-]{6,40}$/;
 const NB = 64;
@@ -22,7 +22,7 @@ const USERS = [
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" },
   });
 const fail = (status, code, error) => json({ code, error }, status);
 
@@ -33,24 +33,39 @@ const sha = (s) => crypto.createHash("sha256").update(String(s)).digest();
 const same = (a, b) => crypto.timingSafeEqual(sha(a), sha(b));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// La firma de cada sesión depende también de la contraseña del usuario: si se cambia la contraseña en Netlify,
+// todas las sesiones abiertas (incluida una robada) dejan de servir al instante.
+const keyOf = (user, secret) => crypto.createHmac("sha256", secret).update("sesion|" + (process.env[user.env] || "")).digest();
 function makeToken(user, secret) {
-  const p = b64u(JSON.stringify({ u: user.id, exp: Date.now() + TTL }));
-  return p + "." + sign(p, secret);
+  const p = b64u(JSON.stringify({ u: user.id, iat: Date.now(), exp: Date.now() + TTL, j: crypto.randomBytes(6).toString("hex") }));
+  return p + "." + sign(p, keyOf(user, secret));
 }
 function readToken(req, secret) {
   const h = req.headers.get("authorization") || "";
   const t = h.startsWith("Bearer ") ? h.slice(7) : "";
+  if (t.length > 600) return null;
   const [p, s] = t.split(".");
-  if (!p || !s || !same(s, sign(p, secret))) return null;
+  if (!p || !s) return null;
   try {
     const d = JSON.parse(Buffer.from(p, "base64url").toString());
-    if (!d.exp || d.exp < Date.now()) return null;
-    return USERS.find((u) => u.id === d.u) || null;
+    const u = USERS.find((x) => x.id === d.u);
+    if (!u || !process.env[u.env] || !same(s, sign(p, keyOf(u, secret)))) return null;
+    if (!d.exp || d.exp < Date.now() || (d.iat && d.iat > Date.now() + 5 * 60 * 1000)) return null;
+    return u;
   } catch {
     return null;
   }
 }
 
+const ipOf = (req) => (req.headers.get("x-nf-client-connection-ip") || String(req.headers.get("x-forwarded-for") || "").split(",")[0] || "local").trim().slice(0, 64);
+// bitácora de accesos: últimos 100 (quién, qué pasó, cuándo y una huella corta de la dirección; nunca la contraseña)
+async function audit(s, user, ip, ev) {
+  try {
+    const cur = (await s.get("audit/log", { type: "json" })) || [];
+    cur.push({ t: Date.now(), u: user ? user.id : "?", ev, ip: sha(ip).toString("hex").slice(0, 8) });
+    await s.setJSON("audit/log", cur.slice(-100));
+  } catch (e) { console.error("audit", e); }
+}
 const store = () => getStore({ name: "conalep", consistency: "strong" });
 const bucketOf = (t) => {
   let h = 0;
@@ -223,6 +238,11 @@ async function dbOp(s, user, b) {
       data.by = user.id;
       data.at = Date.now();
     }
+    if (p.col === "plantillas") {
+      if (JSON.stringify(data).length > 3_000_000) return fail(413, "quota_exceeded", "La plantilla es demasiado grande");
+      data.by = user.id;
+      data.at = Date.now();
+    }
     if (p.col === "marcas") {
       // solo se sella lo nuevo o lo que cambió: lo que ya estaba conserva su autor y su hora originales
       const cur = (await getDoc(s, p.key)) || {};
@@ -334,6 +354,7 @@ export default async (req) => {
   if (req.method !== "POST") return fail(405, "method", "Método no permitido");
   if (!secret || secret.length < 16)
     return fail(500, "config", "Falta configurar AUTH_SECRET en Netlify (variables de entorno).");
+  if (Number(req.headers.get("content-length") || 0) > 12e6) return fail(413, "too_large", "Solicitud demasiado grande");
   let body;
   try {
     body = await req.json();
@@ -343,21 +364,26 @@ export default async (req) => {
   const s = store();
 
   if (route === "login") {
-    const name = String(body.username || "").trim().toLowerCase();
+    const name = String(body.username || "").trim().toLowerCase().slice(0, 60);
     const user = USERS.find((u) => u.aliases.includes(name));
-    const key = "fail/" + (user ? user.id.replace(/\W/g, "") : "x");
-    const f = (await s.get(key, { type: "json" })) || { n: 0, t: 0 };
-    if (f.n >= 8 && Date.now() - f.t < 15 * 60 * 1000)
-      return fail(429, "locked", "Demasiados intentos. Espera 15 minutos.");
+    const ip = ipOf(req), WIN = 15 * 60 * 1000, now = Date.now();
+    const kIp = "fail/ip-" + sha(ip).toString("hex").slice(0, 16), kUs = "fail/us-" + (user ? user.id.replace(/\W/g, "") : "x");
+    const [fi, fu] = await Promise.all([s.get(kIp, { type: "json" }), s.get(kUs, { type: "json" })]);
+    const ni = fi && now - fi.t < WIN ? fi.n : 0, nu = fu && now - fu.t < WIN ? fu.n : 0;
+    // una dirección se bloquea a los 8 intentos; la cuenta solo a los 40 (así nadie puede dejar fuera al dueño con unos cuantos intentos)
+    if (ni >= 8 || nu >= 40) { await audit(s, user, ip, "bloqueado"); return fail(429, "locked", "Demasiados intentos. Espera 15 minutos."); }
     const pass = user ? process.env[user.env] : "";
-    const ok = !!user && !!pass && same(String(body.password || ""), pass);
+    const ok = !!user && !!pass && same(String(body.password || "").slice(0, 200), pass);
     if (!ok) {
-      await sleep(700);
-      await s.setJSON(key, { n: (Date.now() - f.t < 15 * 60 * 1000 ? f.n : 0) + 1, t: Date.now() });
+      await sleep(600 + 250 * Math.min(ni, 8));
+      await Promise.all([s.setJSON(kIp, { n: ni + 1, t: now }), s.setJSON(kUs, { n: nu + 1, t: now })]);
+      await audit(s, user, ip, "fallo");
       if (user && !pass) return fail(500, "config", "Falta configurar la contraseña de este usuario en Netlify.");
       return fail(401, "unauthenticated", "Usuario o contraseña incorrectos.");
     }
-    if (f.n) await s.delete(key);
+    if (ni) await s.delete(kIp);
+    if (nu) await s.delete(kUs);
+    await audit(s, user, ip, "entró");
     return json({ token: makeToken(user, secret), user: user.id });
   }
 
@@ -372,6 +398,10 @@ export default async (req) => {
     if (route === "foto-get") return await fotoGet(s, body);
     if (route === "foto-edit") return await fotoEdit(s, user, body);
     if (route === "foto-del") return await fotoDel(s, user, body);
+    if (route === "audit") {
+      if (!user.admin) return fail(403, "forbidden", "Solo el administrador");
+      return json({ log: (await s.get("audit/log", { type: "json" })) || [] });
+    }
     if (route === "seed") {
       if (!user.admin) return fail(403, "forbidden", "Solo el administrador");
       return json(await seedIfEmpty(s));

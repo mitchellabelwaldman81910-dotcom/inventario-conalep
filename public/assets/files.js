@@ -475,5 +475,7 @@ F.zipLabels = async (list, onProg) => {
   return zip.generateAsync({ type: "blob" });
 };
 
+F.jszip = JSZ;
+F.cellText = (cell) => cellVal(cell, false)[0];
 window.F = F;
 })();

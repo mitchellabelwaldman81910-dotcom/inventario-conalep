@@ -264,6 +264,7 @@ FX.fill = (root) => {
 let cv = null, cx = null, parts = [], raf = 0;
 const COLORS = ["#006B54", "#27B58E", "#9BE3C8", "#E9B949", "#FFFFFF", "#C2362B", "#0F231D"];
 FX.confetti = (o = {}) => {
+  if (FX.calm) return;
   if (!FX.motion) return;
   if (!cv) { cv = document.createElement("canvas"); cv.className = "fxcv"; if ("popover" in HTMLElement.prototype) cv.popover = "manual"; document.body.appendChild(cv); cx = cv.getContext("2d"); }
   if (cv.showPopover) { try { if (cv.matches(":popover-open")) cv.hidePopover(); cv.showPopover(); } catch (e) {} }
@@ -290,6 +291,7 @@ function loop() {
 
 /* ---------- salpicadura pequeña (al sellar) ---------- */
 FX.burst = (x, y, color) => {
+  if (FX.calm) return;
   if (!FX.motion) return;
   for (let i = 0; i < 10; i++) {
     const d = document.createElement("i"); d.className = "spark"; d.style.cssText = `left:${x}px;top:${y}px;background:${color}`;

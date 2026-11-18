@@ -5,7 +5,7 @@
 "use strict";
 // acentos solo para mostrar (el Excel viene en MAYÚSCULAS sin acentos); ver acentos.js
 const accent = (t) => (typeof window.acentuar === "function" ? window.acentuar(t) : t);
-const VERSION = "19.0";
+const VERSION = "21.0";
 const TK = "cnlp_token", UK = "cnlp_user";
 const SIN = "(Sin resguardante)";
 const clean = (v) => String(v ?? "").replace(/\s+/g, " ").trim();
@@ -52,13 +52,14 @@ const S = {
 };
 const subs = [];
 const emit = (k) => { for (const f of subs) { try { f(k); } catch (e) { console.error(e); } } };
-const K = { RC: -1, MB: 0, DS: 1, MA: -1, MO: -1, SE: -1, AR: -1, IM: -1 };
+const K = { RC: -1, MB: 0, DS: 1, MA: -1, MO: -1, SE: -1, AR: -1, IM: -1, PR: -1, CU: -1, FA: -1, FE: -1 };
 function cols() {
   const h = S.inv?.h || [];
   const f = (re) => h.findIndex((x) => re.test(x));
   K.RC = f(/resguard/i); K.MB = f(/marbete|inventario|folio|clave|c[oó]digo/i); if (K.MB < 0) K.MB = 0;
   K.DS = f(/descrip/i); if (K.DS < 0) K.DS = Math.min(1, h.length - 1);
   K.MA = f(/marca/i); K.MO = f(/modelo/i); K.SE = f(/serie/i); K.AR = f(/[áa]rea|ubicaci/i); K.IM = f(/importe|valor|costo|precio/i);
+  K.PR = f(/proveedor/i); K.CU = f(/cuenta/i); K.FE = f(/fecha/i); K.FA = h.findIndex((x) => /factura/i.test(x) && !/fecha/i.test(x));
   sx = null;
 }
 const cell = (row, j) => (j >= 0 && row ? clean(row[j + 1]) : "");

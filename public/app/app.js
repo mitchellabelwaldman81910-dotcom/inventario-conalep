@@ -30,8 +30,8 @@ const wj = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch
 const SET = Object.assign({ theme: "auto", sound: true, vib: true, auto: true, less: false, sort: "az", group: false, text: 0, tips: true, sign: true, voice: false, scanTones: true, tonePack: "esc_grave", ia: true, wm: true }, rj("cnlp_set", {}));
 const mqReduce = matchMedia("(prefers-reduced-motion: reduce)"), mqDark = matchMedia("(prefers-color-scheme: dark)");
 function applySet() {
-  FX.sound = SET.sound; FX.vib = SET.vib; FX.scanTones = SET.scanTones !== false; FX.pack = FX.PACKS && FX.PACKS.includes(SET.tonePack) ? SET.tonePack : "esc_grave"; FX.motion = !SET.less && !mqReduce.matches;
-  const de = document.documentElement; de.classList.toggle("lessmo", !!SET.less); de.style.fontSize = ["100%", "112%", "125%"][SET.text || 0] || "100%"; de.dataset.text = String(SET.text || 0);
+  FX.sound = SET.sound; FX.vib = SET.vib; FX.scanTones = SET.scanTones !== false; FX.pack = FX.PACKS && FX.PACKS.includes(SET.tonePack) ? SET.tonePack : "esc_grave"; FX.calm = !!SET.calm; FX.motion = !SET.less && !SET.calm && !mqReduce.matches;
+  const de = document.documentElement; de.classList.toggle("lessmo", !!SET.less || !!SET.calm); de.classList.toggle("calm", !!SET.calm); de.style.fontSize = ["100%", "112%", "125%"][SET.text || 0] || "100%"; de.dataset.text = String(SET.text || 0);
   if (SET.theme === "auto") de.removeAttribute("data-theme"); else de.setAttribute("data-theme", SET.theme);
   metaTheme();
 }
@@ -376,7 +376,7 @@ VIEWS.home = {
         <div class="legend"><span><i style="background:#9BE3C8"></i>Presentes <b id="hSiN"></b></span><span><i style="background:#FF9C8F"></i>No están <b id="hNoN"></b></span><span><i style="background:rgba(255,255,255,.35)"></i>Pendientes <b id="hPeN"></b></span></div>
         <div class="hero-f"><span>Resguardantes finalizados</span><b id="hFin"></b></div>
       </section>
-      <div class="qa"><button type="button" class="qa-b wide" data-act="rooms">${ic("pin")}<span><b>Revisar por salón</b><small>Estás en un lugar: ve todos sus bienes, de quien sean, y márcalos</small></span></button><button type="button" class="qa-b" data-act="scanlook">${ic("scan")}<span><b>Escanear un bien</b><small>Ver de quién es</small></span></button><button type="button" class="qa-b" data-act="bajas">${ic("archive")}<span><b>Bajas</b><small>Listas con fecha</small></span></button><button type="button" class="qa-b" data-act="fotos">${ic("camera")}<span><b>Fotos</b><small>Por fecha y tipo</small></span></button><button type="button" class="qa-b" data-act="tools">${ic("spark")}<span><b>Herramientas</b><small>Borrador mágico y más</small></span></button><button type="button" class="qa-b cbq" data-act="cerebro">${ic("brain")}<span><b>Cerebro</b><small>Todo conectado</small></span></button><button type="button" class="qa-b" data-act="fechas">${ic("clock")}<span><b>Fechas</b><small>Qué se hizo y cuándo</small></span></button><button type="button" class="qa-b" data-act="vachat">${ic("spark")}<span><b>Lua</b><small>Habla o escríbele</small></span></button><button type="button" class="qa-b" data-act="help">${ic("help")}<span><b>Ayuda y guía</b><small>Cómo funciona todo</small></span></button></div>
+      <div class="qa"><button type="button" class="qa-b wide" data-act="rooms">${ic("pin")}<span><b>Revisar por salón</b><small>Estás en un lugar: ve todos sus bienes, de quien sean, y márcalos</small></span></button><button type="button" class="qa-b" data-act="scanlook">${ic("scan")}<span><b>Escanear un bien</b><small>Ver de quién es</small></span></button><button type="button" class="qa-b" data-act="bajas">${ic("archive")}<span><b>Bajas</b><small>Listas con fecha</small></span></button><button type="button" class="qa-b" data-act="fotos">${ic("camera")}<span><b>Fotos</b><small>Por fecha y tipo</small></span></button><button type="button" class="qa-b cbq" data-act="cerebro">${ic("brain")}<span><b>Cerebro</b><small>Todo conectado</small></span></button><button type="button" class="qa-b" data-act="fechas">${ic("clock")}<span><b>Fechas</b><small>Qué se hizo y cuándo</small></span></button><button type="button" class="qa-b" data-act="vachat">${ic("spark")}<span><b>Lumen</b><small>Habla o escríbele</small></span></button><button type="button" class="qa-b" data-act="help">${ic("help")}<span><b>Ayuda y guía</b><small>Cómo funciona todo</small></span></button></div>
       <div id="hInst"></div>
       <div class="sec"><h2>Elige a quién vas a revisar</h2><span class="tiny" id="hCount"></span></div>
       <p class="tiny sub">Resguardante = la persona responsable de esos bienes. Toca a una para ver y revisar los suyos.</p>
@@ -827,7 +827,7 @@ VIEWS.search = {
   head: () => ({ t: "Buscar", s: fmtN(Object.keys(S.inv?.i || {}).length) + " artículos" }),
   mount(pg) {
     pg.innerHTML = `<div class="greet"><h1>Buscar un bien</h1><p>Por marbete, descripción, serie, marca, área o resguardante.</p></div>
-      <div class="tools"><div class="srch">${ic("search")}<input id="gq" type="search" placeholder="Ej. 734821 o monitor lenovo" autocomplete="off" enterkeyhint="search" aria-label="Buscar en todo el inventario"><button class="clr" type="button" data-act="gclr" aria-label="Borrar" hidden>${ic("x")}</button></div><button type="button" class="ibtn" data-act="scanlook" aria-label="Escanear para consultar">${ic("scan")}</button><button type="button" class="ibtn" data-act="vachat" aria-label="Hablar con Lua">${ic("spark")}</button></div>
+      <div class="tools"><div class="srch">${ic("search")}<input id="gq" type="search" placeholder="Ej. 734821 o monitor lenovo" autocomplete="off" enterkeyhint="search" aria-label="Buscar en todo el inventario"><button class="clr" type="button" data-act="gclr" aria-label="Borrar" hidden>${ic("x")}</button></div><button type="button" class="ibtn" data-act="scanlook" aria-label="Escanear para consultar">${ic("scan")}</button><button type="button" class="ibtn" data-act="vachat" aria-label="Hablar con Lumen">${ic("spark")}</button></div>
       <div id="gRec"></div><div class="tiny" id="gInfo" style="margin:4px 2px 8px"></div><div class="ilist" id="gRes"></div>`;
     const q = $("gq"); q.value = U.gq; let t = 0;
     q.oninput = () => { U.gq = q.value; clearTimeout(t); t = setTimeout(() => this.update(), 120); };
@@ -908,9 +908,9 @@ VIEWS.more = {
     const sw = (k, on) => `<span class="sw" role="switch" aria-checked="${!!on}" data-sw="${k}"></span>`;
     const th = (k, l, i) => `<button type="button" class="${SET.theme === k ? "on" : ""}" data-act="theme" data-t="${k}">${ic(i)}${l}</button>`;
     this.pg.innerHTML = `<div class="prof">${av(S.user, "")}<div><b>${esc(S.user)}</b><small>Sesión iniciada en este teléfono</small></div></div>
+      <div class="set-g"><button type="button" class="set-r hl" data-act="sw" data-k="calm">${ic("eye")}<span class="t">Modo tranquilo<small>Apaga animaciones, confeti, adornos y atajos extra. Deja solo lo necesario, limpio y ordenado</small></span>${sw("calm", SET.calm)}</button></div>
       <div class="set-g"><button type="button" class="set-r" data-act="fotos">${ic("camera")}<span class="t">Fotos<small>Todas las fotos por fecha, por tipo y las que faltan</small></span>${ic("chev")}</button>
         <button type="button" class="set-r" data-act="bajas">${ic("archive")}<span class="t">Bajas<small>Tus listas de baja con fecha, folio y fotos</small></span>${ic("chev")}</button>
-        <button type="button" class="set-r" data-act="tools">${ic("spark")}<span class="t">Herramientas<small>Borrador mágico, plantillas y lo que viene</small></span>${ic("chev")}</button>
         <button type="button" class="set-r" data-act="cerebro">${ic("brain")}<span class="t">Cerebro<small>Toda la información como una red morada que puedes explorar</small></span>${ic("chev")}</button>
         <button type="button" class="set-r" data-act="fechas">${ic("clock")}<span class="t">Fechas<small>Cuándo se terminó cada inventario, cada baja y cada foto</small></span>${ic("chev")}</button></div>
       <div class="set-g"><button type="button" class="set-r hl" data-act="help">${ic("help")}<span class="t">Ayuda y guía<small>Cómo funciona todo, paso a paso, y preguntas frecuentes</small></span>${ic("chev")}</button></div>
@@ -926,7 +926,7 @@ VIEWS.more = {
         <button type="button" class="set-r" data-act="sw" data-k="sound">${ic("sound")}<span class="t">Sonidos</span>${sw("sound", SET.sound)}</button>
         <button type="button" class="set-r" data-act="sw" data-k="scanTones">${ic("scan")}<span class="t">Tonos del escáner<small>A todo volumen: QR bien puesto, QR fuera del recuadro y artículo presente</small></span>${sw("scanTones", SET.scanTones !== false)}</button>
         <button type="button" class="set-r" data-act="tonepick">${ic("sound")}<span class="t">Elegir los tonos<small>${esc(TONEN[SET.tonePack] || TONEN.escaner)} · toca para escuchar y cambiar</small></span>${ic("chev")}</button>
-        <button type="button" class="set-r" data-act="vachat">${ic("spark")}<span class="t">Hablar con Lua<small>Tu asistente: pregúntale lo que quieras, por voz o escribiendo</small></span>${ic("chev")}</button>
+        <button type="button" class="set-r" data-act="vachat">${ic("spark")}<span class="t">Hablar con Lumen<small>Tu asistente: pregúntale lo que quieras, por voz o escribiendo</small></span>${ic("chev")}</button>
         <button type="button" class="set-r" data-act="sw" data-k="ia">${ic("mic")}<span class="t">Voz con inteligencia artificial<small>Entiende frases libres y contesta preguntas. Manda a la IA el texto de lo que dices (no tu voz) y gasta créditos de Netlify</small></span>${sw("ia", SET.ia !== false)}</button>
         <button type="button" class="set-r" data-act="sw" data-k="vib">${ic("vib")}<span class="t">Vibración<small>En Android</small></span>${sw("vib", SET.vib)}</button>
         <button type="button" class="set-r" data-act="sw" data-k="wm">${ic("camera")}<span class="t">Sello en las fotos<small>Escribe el marbete, la fecha y la hora al pie de cada foto nueva</small></span>${sw("wm", SET.wm !== false)}</button>
@@ -2235,10 +2235,14 @@ function vaListen() {
   if (($("sheet") && $("sheet").open && !$("sheet").classList.contains("closing")) || !$("scan").hidden) { VA.timer = setTimeout(vaListen, 300); return; }
   const gen = VA.gen; let rec, got = false, err = "";
   try { rec = new SRC(); } catch (e) { vaNoMic("Este navegador no deja usar el micrófono. Responde con los botones."); return; }
-  rec.lang = "es-MX"; rec.continuous = false; rec.interimResults = false; rec.maxAlternatives = 4;
-  rec.onresult = (ev) => { if (gen !== VA.gen || got) return; got = true; const r = ev.results[ev.results.length - 1], alts = []; for (let i = 0; i < r.length; i++) alts.push(r[i].transcript); VA.quiet = 0; vaHear(alts); };
+  rec.lang = "es-MX"; rec.continuous = false; rec.interimResults = true; rec.maxAlternatives = 4;
+  let sil = 0, lastAlts = null; const fin = (alts) => { clearTimeout(sil); if (gen !== VA.gen || got) return; got = true; VA.quiet = 0; try { rec.stop(); } catch (e) {} vaHear(alts); };
+  // si el motor tarda en cerrar, a ~1 s de silencio se da por buena la última frase oída (Lumen responde antes)
+  rec.onresult = (ev) => { if (gen !== VA.gen || got) return; const r = ev.results[ev.results.length - 1], alts = []; for (let i = 0; i < r.length; i++) alts.push(r[i].transcript); clearTimeout(sil); if (r.isFinal !== false) { fin(alts); return; } if ((alts[0] || "").trim().length >= 2) { lastAlts = alts; sil = setTimeout(() => fin(alts), 1000); } };
   rec.onerror = (ev) => { err = (ev && ev.error) || "error"; };
   rec.onend = () => {
+    clearTimeout(sil);
+    if (!got && lastAlts && gen === VA.gen && VA.on && !VA.paused) { if (VA.rec === rec) { VA.rec = null; VA.listening = false; } fin(lastAlts); return; } // el motor cerró sin frase final: vale lo último oído
     if (VA.rec === rec) { VA.rec = null; VA.listening = false; }
     if (gen !== VA.gen || !VA.on || got || VA.paused) { vaUI(); return; }
     if (err === "not-allowed" || err === "service-not-allowed") { vaNoMic(IOS ? "En iPhone: Ajustes → General → Teclado → activa «Dictado», y en Ajustes → Safari permite el micrófono. Mientras, " + (VA.kind === "chat" ? "escribe tu pregunta abajo." : "responde con los botones.") : "Permite el micrófono para que te escuche (candado de la barra del navegador). Mientras, " + (VA.kind === "chat" ? "escribe tu pregunta abajo." : "responde con los botones.")); return; }
@@ -2247,7 +2251,7 @@ function vaListen() {
     VA.quiet++;
     if (VA.quiet === 4) { const tok = vaTok(); vaSay("¿Sigues ahí? " + (tok ? "¿El artículo " + vaSpokenMb(tok) + " se encuentra?" : ""), vaListen); return; }
     if (VA.quiet >= 9) { vaPause("Pausé porque no escuché respuesta. Toca «Seguir» cuando quieras."); return; }
-    VA.timer = setTimeout(vaListen, 250);
+    VA.timer = setTimeout(vaListen, 120);
   };
   VA.rec = rec; VA.listening = true; vaUI();
   try { rec.start(); } catch (e) { VA.rec = null; VA.listening = false; VA.timer = setTimeout(vaListen, 700); }
@@ -2317,12 +2321,15 @@ const VZ_SIN = [["silla", "sillas", "asiento", "asientos", "butaca", "butacas", 
 const vzSyn = (w) => { for (const g of VZ_SIN) if (g.includes(w)) return g; return [w]; };
 const vzSing = (w) => (w.length > 5 && w.endsWith("es") ? w.slice(0, -2) : w.length > 4 && w.endsWith("s") ? w.slice(0, -1) : w);
 const vzTextOk = (hw, q) => String(q || "").split(" ").filter((x) => x.length > 1 && !VZ_STOP.has(x)).every((x) => vzSyn(x).some((a) => hw.some((h) => h === a || h.startsWith(a) || (a.length >= 5 && h.length >= 5 && vzLev(h, a) <= 1))));
+// fecha de factura «dd/mm/aaaa», «aaaa-mm-dd» o número de Excel → milisegundos
+function vzTs(v) { v = String(v || "").trim(); let m; if ((m = v.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/))) { let y = +m[3]; if (y < 100) y += y > 50 ? 1900 : 2000; const t = Date.UTC(y, +m[2] - 1, +m[1]); return y > 1950 && y < 2100 ? t : 0; } if ((m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return Date.UTC(+m[1], +m[2] - 1, +m[3]); if (/^\d{5}$/.test(v)) return Math.round((+v - 25569) * 864e5); return 0; }
 function vaRows() { // todo el inventario, ya con su estado de revisión (incluye lo pendiente de enviar)
   const out = [];
   for (const tok in C.S.inv.i) {
     const r = C.row(tok), own = C.owner(tok), m = C.getMark(own, tok);
     const ds = cell(r, K.DS), ma = cell(r, K.MA), mo = cell(r, K.MO), se = cell(r, K.SE), ar = cell(r, K.AR), im = C.money(cell(r, K.IM));
-    out.push({ tok, mb: String(mbOf(tok)), ds, ma, mo, se, ar, own, im, rev: m ? (m.e === "si" ? "presente" : "no_esta") : "pendiente", cond: m && m.e === "si" ? m.c || "B" : "", nota: m && m.n ? m.n : "", hw: vnorm(ds + " " + ma + " " + mo + " " + se + " " + mbOf(tok)).split(" "), nown: vnorm(own === C.SIN ? "" : own), nar: vnorm(ar) });
+    const pr = cell(r, K.PR), cu = cell(r, K.CU), fa = cell(r, K.FA), fe = cell(r, K.FE), ts = vzTs(fe);
+    out.push({ tok, mb: String(mbOf(tok)), ds, ma, mo, se, ar, own, im, pr, cu, fa, fe, ts, yr: ts ? new Date(ts).getFullYear() : 0, npr: vnorm(pr), rev: m ? (m.e === "si" ? "presente" : "no_esta") : "pendiente", cond: m && m.e === "si" ? m.c || "B" : "", nota: m && m.n ? m.n : "", hw: vnorm(ds + " " + ma + " " + mo + " " + se + " " + mbOf(tok)).split(" "), nown: vnorm(own === C.SIN ? "" : own), nar: vnorm(ar) });
   }
   return out;
 }
@@ -2341,12 +2348,20 @@ function vaFiltra(rows, f) {
     if (f.sin_serie && !vzBlank(x.se) === true) return false;
     if (f.sin_marca && !vzBlank(x.ma) === true) return false;
     if (f.sin_resguardante && x.own !== C.SIN) return false;
+    if (f.proveedor && !vzMatch(x.npr, vnorm(f.proveedor))) return false;
+    if (f.marca && !vzMatch(vnorm(x.ma), vnorm(f.marca))) return false;
+    if (f.cuenta && !String(x.cu).replace(/\s/g, "").includes(String(f.cuenta).replace(/\s/g, ""))) return false;
+    if (f.factura && String(x.fa).replace(/\s/g, "").toUpperCase() !== String(f.factura).replace(/\s/g, "").toUpperCase()) return false;
+    if (f.anio_desde && !(x.yr && x.yr >= +f.anio_desde)) return false;
+    if (f.anio_hasta && !(x.yr && x.yr <= +f.anio_hasta)) return false;
+    if (f.sin_fecha && x.ts) return false;
+    if (f.sin_importe && x.im > 0) return false;
     return true;
   });
 }
 const vzSum = (l) => l.reduce((a, x) => a + x.im, 0);
 const vzStats = (l) => ({ total: l.length, valor_total: Math.round(vzSum(l)), presentes: l.filter((x) => x.rev === "presente").length, no_esta: l.filter((x) => x.rev === "no_esta").length, pendientes: l.filter((x) => x.rev === "pendiente").length, en_mal_estado: l.filter((x) => x.cond === "M").length, en_estado_regular: l.filter((x) => x.cond === "R").length });
-const vzFila = (x) => ({ marbete: x.mb, descripcion: scase(x.ds).slice(0, 60), area: scase(x.ar).slice(0, 40), resguardante: x.own === C.SIN ? "sin resguardante" : tcase(x.own), valor: Math.round(x.im), revision: x.rev, ...(x.cond ? { condicion: x.cond } : {}), ...(x.nota ? { nota: x.nota.slice(0, 80) } : {}) });
+const vzFila = (x) => ({ marbete: x.mb, descripcion: scase(x.ds).slice(0, 60), area: scase(x.ar).slice(0, 40), resguardante: x.own === C.SIN ? "sin resguardante" : tcase(x.own), valor: Math.round(x.im), revision: x.rev, ...(x.fe ? { fecha_factura: x.fe } : {}), ...(x.pr ? { proveedor: scase(x.pr).slice(0, 40) } : {}), ...(x.cond ? { condicion: x.cond } : {}), ...(x.nota ? { nota: x.nota.slice(0, 80) } : {}) });
 function vaTool(q) {
   q = q || {}; const rows = vaRows(), lim = Math.min(15, Math.max(1, +q.limite || 8));
   let out;
@@ -2374,19 +2389,29 @@ function vaTool(q) {
   } else {
     const l = vaFiltra(rows, q.filtros);
     if (q.operacion === "contar") out = vzStats(l);
-    else if (q.operacion === "articulo") { const x = l[0]; out = x ? { ...vzFila(x), marca: x.ma, modelo: x.mo, serie: x.se } : { total: 0 }; }
+    else if (q.operacion === "articulo") { const x = l[0]; out = x ? { ...vzFila(x), marca: x.ma, modelo: x.mo, serie: x.se, ...(x.cu ? { cuenta_contable: x.cu } : {}), ...(x.fa ? { factura: x.fa } : {}), ...(x.ts ? { antiguedad_anios: Math.round((Date.now() - x.ts) / 31557600000 * 10) / 10 } : {}) } : { total: 0 }; }
     else if (q.operacion === "listar") {
       const ord = q.ordenar; const s2 = l.slice();
-      if (ord === "valor_desc") s2.sort((a, b) => b.im - a.im); else if (ord === "valor_asc") s2.sort((a, b) => (a.im || 1e12) - (b.im || 1e12)); else s2.sort((a, b) => (+a.mb || 0) - (+b.mb || 0));
+      if (ord === "valor_desc") s2.sort((a, b) => b.im - a.im); else if (ord === "valor_asc") s2.sort((a, b) => (a.im || 1e12) - (b.im || 1e12)); else if (ord === "fecha_asc") s2.sort((a, b) => (a.ts || 9e15) - (b.ts || 9e15)); else if (ord === "fecha_desc") s2.sort((a, b) => (b.ts || 0) - (a.ts || 0)); else s2.sort((a, b) => (+a.mb || 0) - (+b.mb || 0));
       out = { total: l.length, mostrando: Math.min(lim, l.length), filas: s2.slice(0, lim).map(vzFila) };
     } else if (q.operacion === "agrupar") {
-      const key = { area: (x) => scase(x.ar || "sin área"), resguardante: (x) => (x.own === C.SIN ? "sin resguardante" : tcase(x.own)), tipo: (x) => { const w = x.hw.filter((h) => h.length > 2 && !VZ_STOP.has(h) && !/^\d/.test(h))[0] || "otro"; return vzSyn(vzSing(w))[0]; }, marca: (x) => (vzBlank(x.ma) ? "sin marca" : scase(x.ma)), revision: (x) => x.rev, condicion: (x) => ({ B: "bueno", R: "regular", M: "malo" }[x.cond] || "sin revisar") }[q.agrupar_por];
+      const key = { area: (x) => scase(x.ar || "sin área"), resguardante: (x) => (x.own === C.SIN ? "sin resguardante" : tcase(x.own)), tipo: (x) => { const w = x.hw.filter((h) => h.length > 2 && !VZ_STOP.has(h) && !/^\d/.test(h))[0] || "otro"; return vzSyn(vzSing(w))[0]; }, marca: (x) => (vzBlank(x.ma) ? "sin marca" : scase(x.ma)), proveedor: (x) => (x.pr ? scase(x.pr).slice(0, 60) : "sin proveedor"), cuenta: (x) => x.cu || "sin cuenta", anio: (x) => (x.yr ? String(x.yr) : "sin fecha"), revision: (x) => x.rev, condicion: (x) => ({ B: "bueno", R: "regular", M: "malo" }[x.cond] || "sin revisar") }[q.agrupar_por];
       if (!key) out = { error: "agrupar_por no válido" };
       else {
         const g = new Map(); for (const x of l) { const k = key(x), c = g.get(k) || { clave: k, n: 0, valor: 0 }; c.n++; c.valor += x.im; g.set(k, c); }
         const all = [...g.values()].sort((a, b) => (q.ordenar === "valor_desc" ? b.valor - a.valor : b.n - a.n)), top = all.slice(0, lim), rest = all.slice(lim);
         out = { total: l.length, grupos_en_total: all.length, grupos: top.map((c) => ({ clave: c.clave, n: c.n, valor: Math.round(c.valor) })), ...(rest.length ? { otros: { grupos: rest.length, n: rest.reduce((a, c) => a + c.n, 0), valor: Math.round(rest.reduce((a, c) => a + c.valor, 0)) } } : {}) };
       }
+    } else if (q.operacion === "estadisticas") {
+      const v = l.filter((x) => x.im > 0).map((x) => x.im).sort((a, b) => a - b), d = l.filter((x) => x.ts).sort((a, b) => a.ts - b.ts), by = l.slice().filter((x) => x.im > 0).sort((a, b) => b.im - a.im);
+      const anios = {}; for (const x of d) anios[x.yr] = (anios[x.yr] || 0) + 1;
+      out = { ...vzStats(l), con_importe: v.length, sin_importe: l.length - v.length, promedio: v.length ? Math.round(vzSum(l) / v.length) : 0, mediana: v.length ? Math.round(v[Math.floor(v.length / 2)]) : 0,
+        mas_caro: by[0] ? vzFila(by[0]) : null, mas_barato: by.length ? vzFila(by[by.length - 1]) : null, mas_antiguo: d[0] ? vzFila(d[0]) : null, mas_reciente: d.length ? vzFila(d[d.length - 1]) : null,
+        sin_fecha: l.length - d.length, edad_promedio_anios: d.length ? Math.round((d.reduce((a, x) => a + (Date.now() - x.ts), 0) / d.length / 31557600000) * 10) / 10 : null, por_anio: Object.fromEntries(Object.entries(anios).sort((a, b) => b[0] - a[0]).slice(0, 12)) };
+    } else if (q.operacion === "duplicados") {
+      const g = new Map(); for (const x of l) { if (vzBlank(x.se) || String(x.se).replace(/\W/g, "").length < 4) continue; const k = String(x.se).replace(/\W/g, "").toUpperCase(); (g.get(k) || g.set(k, []).get(k)).push(x); }
+      const rep = [...g.entries()].filter(([, a]) => a.length > 1).sort((a, b) => b[1].length - a[1].length);
+      out = { series_repetidas: rep.length, bienes_afectados: rep.reduce((a, [, x]) => a + x.length, 0), ejemplos: rep.slice(0, lim).map(([k, a]) => ({ serie: k, marbetes: a.slice(0, 5).map((x) => x.mb), descripcion: scase(a[0].ds).slice(0, 50) })) };
     } else out = { error: "operación no válida" };
   }
   let txt = JSON.stringify(out);
@@ -2598,10 +2623,10 @@ function vaChatUI(msg) {
   card.dataset.tok = "";
   card.innerHTML = c.q || c.a || VA.thinking
     ? `<div class="va-chat">${c.q ? `<div class="va-you">${esc(c.q)}</div>` : ""}${VA.thinking ? `<div class="va-ai think">${ic("spark")}<span>${esc(VA.got || "Pensando…")}</span></div>` : c.a ? `<div class="va-ai">${esc(vzClean(c.a))}</div>` : ""}</div>`
-    : `<div class="va-chat"><div class="va-ai">Soy Lua. Pregúntame lo que quieras.</div><div class="va-ex">Por ejemplo: «¿cuántas sillas hay?», «marca que el 730390 no está», «propón la baja de ese monitor», «¿cómo finalizo un inventario?» o cuéntame un chiste.</div></div>`;
+    : `<div class="va-chat"><div class="va-ai">Soy Lumen. Pregúntame lo que quieras.</div><div class="va-ex">Por ejemplo: «¿cuántas sillas hay?», «marca que el 730390 no está», «propón la baja de ese monitor», «¿cómo finalizo un inventario?» o cuéntame un chiste.</div></div>`;
   vaEar(msg);
 }
-function vaChatType(v) { // pregunta escrita: calla a Lua y se procesa igual que una dicha
+function vaChatType(v) { // pregunta escrita: calla a Lumen y se procesa igual que una dicha
   VA.sayId++; try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {} VA.speaking = false; vaStopRec(); VA.heard = ""; VA.lastT = "";
   vaChatHear(v);
 }
@@ -2610,6 +2635,158 @@ function vaChatStop() { // «Callar»: deja de hablar y se pone a escuchar
   VA.sayId++; try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {} VA.speaking = false; vaUI(); if (!VA.typing) vaListen();
 }
 function vaChatSay(txt) { VA.chat.a = txt; (VA.chat.hist = VA.chat.hist || []).push({ persona: String(VA.chat.q || "").slice(0, 200), tu: String(txt || "").slice(0, 500) }); VA.chat.hist = VA.chat.hist.slice(-6); vaUI(); vaSay(txt, vaListen); }
+
+/* ---------- v21: reflejos de Lumen: lo común se contesta aquí, al instante y sin internet ---------- */
+const VR_SEC = [[/\b(inicio|principal|home)\b/, "inicio"], [/\b(buscar|busqueda|buscador)\b/, "buscar"], [/\b(actividad|bitacora|historial)\b/, "actividad"], [/\b(configuracion|ajustes|opciones|mas)\b/, "mas"], [/\b(salones|salon|areas)\b/, "salones"], [/\b(escanear|escaner|camara|escaneo)\b/, "escanear"], [/\bbajas?\b/, "bajas"], [/\bfotos?\b/, "fotos"], [/\bfechas?\b/, "fechas"], [/\bcerebro\b/, "cerebro"], [/\bayuda\b/, "ayuda"]];
+const VR_STOP = new Set("cuantos cuantas cuanto hay tengo tengan tienen tiene tenemos en total el la los las de del bienes bien articulos articulo cosas que existen quedan por favor me dices puedes decir dime inventario aqui registrados registradas hemos un una y para a con".split(" "));
+const vrNum = (n) => Math.round(n).toLocaleString("es-MX");
+function vaReflex(text, t) {
+  const say = (x) => vaChatSay(x), n = t ? t.split(" ").length : 0;
+  if (!t || n > 14) return false;
+  // navegación
+  const nav = t.match(/^(por favor )?(abre|abrir|abreme|ve a|ir a|vamos a|llevame a|llevame|muestrame|ensename|quiero ver|ponme|pon)( la| el| las| los)?( pantalla| seccion| pestana| apartado)?( de| del)? (.+)$/);
+  if (nav && !/\d{3}/.test(nav[6])) {
+    const hit = VR_SEC.find(([re]) => re.test(nav[6]));
+    const sub = hit && hit[1] === "bajas" ? (/sugerid/.test(nav[6]) ? "sugeridas" : /propuest/.test(nav[6]) ? "propuestas" : /\blistas?\b/.test(nav[6]) ? "listas" : /\bya\b/.test(nav[6]) ? "ya_en_baja" : /resumen/.test(nav[6]) ? "resumen" : "") : "";
+    if (hit && nav[6].split(" ").length <= 4) { vaRunChat({ accion: "abrir_seccion", seccion: hit[1], ...(sub ? { subseccion: sub } : {}), decir: "Va." }); return true; }
+  }
+  // un marbete: dónde está, quién lo tiene, qué es, ábrelo
+  const mbq = t.match(/\b(donde esta|donde queda|quien tiene|de quien es|que es|dime|busca|abre|abrir|ensename|muestrame|cual es|a quien pertenece)\b.*?\b(?:marbete|numero|articulo|el)?\s*((?:\d[\s,.-]?){5,7}\d?)\s*$/);
+  if (mbq) {
+    const dig = mbq[2].replace(/\D/g, "");
+    if (dig.length >= 5 && dig.length <= 7) {
+      const tok = Object.keys(C.S.inv.i).find((k) => String(mbOf(k)).replace(/\D/g, "") === dig);
+      if (!tok) { say("No encontré el marbete " + dig.split("").join(" ") + ". ¿Me lo dices otra vez?"); return true; }
+      if (/^(abre|abrir|ensename|muestrame)\b/.test(mbq[1])) { vaRunChat({ accion: "abrir_articulo", marbete: dig }); return true; }
+      const own = C.owner(tok), ar = areaOf(tok), m = C.getMark(own, tok);
+      say("El " + vaSpokenMb(tok) + " es " + (vaDesc(tok) || "un bien") + (own !== C.SIN ? ", de " + tcase(own) : ", sin resguardante") + (ar ? ", en " + scase(ar) : "") + (m ? (m.e === "si" ? ". Ya está marcado como presente." : ". Está marcado como que no está.") : ". Todavía no se revisa."));
+      return true;
+    }
+  }
+  // avance
+  if (/\b(cuanto llevo|cuanto llevamos|como voy|como vamos|que tal voy|cuanto falta|cuantos faltan|cuanto me falta|mi avance|el avance|avance general)\b/.test(t) && n <= 8) {
+    const x = C.totals(), pend = x.total - x.rev;
+    say("Van " + vrNum(x.rev) + " de " + vrNum(x.total) + " bienes revisados, faltan " + vrNum(pend) + ". " + vrNum(x.si) + " presentes y " + vrNum(x.no) + " que no están."); return true;
+  }
+  // cuántos…
+  if (/^(cuantos|cuantas)\b/.test(t) || /\b(cuantos|cuantas)\b.*\b(hay|tiene|tienen|tengo|tenemos|quedan)\b/.test(t)) {
+    const rows = vaRows(), words = t.split(" "), per = t.match(/\b(?:tiene|tienen|tiene a cargo|le tocan a|de)\s+(.+)$/);
+    let f = {}, label = "";
+    const pm = per && per[1] && !/^(el|la|los|las|un|una)\b/.test(per[1]) ? vaFindName(per[1], "persona") : null;
+    if (pm && pm.name) { f.resguardante = pm.name; label = "a cargo de " + hname(pm.name); }
+    else {
+      const em = t.match(/\ben\s+(?:el |la |los |las )?(.+?)$/), am = em ? vaFindName(em[1].replace(/^(salon|area|oficina)\s+/, ""), "area") : null;
+      const core = words.filter((w) => !VR_STOP.has(w) && w.length > 1).join(" ");
+      if (am && am.name) { f.area = am.name; label = "en " + scase(am.name); const c2 = core.replace(new RegExp(vnorm(em[1]).split(" ").join("|"), "g"), "").replace(/\b(salon|area|oficina)\b/g, "").replace(/\s+/g, " ").trim(); if (c2) f.texto = c2; }
+      else if (/\b(faltan|pendientes|sin revisar|por revisar)\b/.test(t)) f.revision = "pendiente";
+      else if (/\bno estan\b|\bfaltantes\b/.test(t)) f.revision = "no_esta";
+      else if (core) f.texto = core;
+    }
+    if (f.revision && f.texto) delete f.texto;
+    const l = vaFiltra(rows, f);
+    if (!l.length && f.texto) return false; // no entendí el tipo de bien: que lo resuelva la IA
+    const st = vzStats(l), what = f.revision === "pendiente" ? "bienes pendientes de revisar" : f.revision === "no_esta" ? "bienes marcados como que no están" : f.texto ? f.texto : "bienes";
+    say("Hay " + vrNum(st.total) + " " + what + (label ? " " + label : "") + (f.revision ? "" : ": " + vrNum(st.presentes) + " presentes, " + vrNum(st.no_esta) + " que no están y " + vrNum(st.pendientes) + " pendientes") + ".");
+    return true;
+  }
+  if (/\b(cuanto vale|cuanto valen|valor total|cuanto cuesta)\b.*\b(todo|inventario|total)\b/.test(t)) { const st = vzStats(vaRows()); say("El inventario completo vale unos " + vrNum(st.valor_total) + " pesos."); return true; }
+  return false;
+}
+
+/* ---------- v21: Lumen sabe lo que dice la guía de ayuda (app, portal, glosario y preguntas frecuentes), sin internet ---------- */
+const vsPlain = (h) => String(h || "").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+const VS_STOP = new Set("cuentame hablame platicame cuentanos dinos ensename muestrame quien quienes cuando fue fueron invento creo doy das da pongo pones tengo tienes quiero necesito saber hacer como que es el la los las de del un una y o para por se me mi mis tu con en a al lo le puedo puedes hago hacer quiero dime explicame explica sirve sirven cual cuales donde esta estan hay".split(" "));
+let VS_IDX = null;
+function vsIndex() {
+  if (VS_IDX) return VS_IDX; const AY = window.AYUDA || {}, out = [];
+  const words = (x) => vnorm(x || "").split(" ").filter((y) => (y.length > 2 || y === "qr") && !VS_STOP.has(y));
+  const add = (kind, key, ans, extra, low) => { const w = words(key + " " + (extra || "")); if (w.length && ans) out.push({ kind, w: new Set(w), lw: new Set(words(low).filter((y) => !w.includes(y))), tw: new Set(vnorm(key).split(" ").filter((x) => x.length > 2 && !VS_STOP.has(x)).map(vsSt)), key: vnorm(key), ans }); };
+  for (const g of AY.glosario || []) add("def", g[0], g[0] + ": " + vsPlain(g[1]));
+  for (const f of AY.faq || []) add("faq", f.q, vsPlain(f.a), "");
+  for (const b of window.BIBLIOTECA || []) add("lib", b.t, vsPlain(b.x), b.kw, b.x);
+  for (const grp of [AY.app || [], AY.portal || []]) for (const t of grp) add("tema", t.t, vsPlain(t.q) + " " + (t.pasos || []).slice(0, 3).map((x, i) => (i + 1) + ". " + vsPlain(x)).join(" "), (t.kw || "") + " " + (t.q || ""), vsPlain((t.pasos || []).join(" ")));
+  return (VS_IDX = out);
+}
+const VS_SYN = { letra: "texto", letras: "texto", tamano: "tamano", oscuro: "tema", foto: "fotos", fotografia: "fotos", codigo: "qr", camara: "escanear", escaneo: "escanear", propongo: "proponer", finalizo: "finalizar", etiqueta: "etiquetas", celular: "app", telefono: "app", contrasena: "sesion", clave: "sesion" };
+const vsSt = (w) => (w.length > 4 ? w.replace(/(es|s)$/, "") : w).slice(0, 5);
+const vsSame = (a, b) => !!a && !!b && vsSt(a.key.split(" ").find((w) => w.length > 3 && !VS_STOP.has(w)) || "") === vsSt(b.key.split(" ").find((w) => w.length > 3 && !VS_STOP.has(w)) || "");
+let VS_DF = null;
+function vsDf(idx) { if (VS_DF) return VS_DF; const m = new Map(); for (const e of idx) { const seen = new Set(); for (const w of e.w) { for (const k of [w, vsSt(w)]) if (!seen.has(k)) { seen.add(k); m.set(k, (m.get(k) || 0) + 1); } } } return (VS_DF = m); }
+function vaSaber(text, t) {
+  if (!/^(quien|quienes|cuando|cuentame|hablame|platicame|explicame|historia|origen|de donde|que paso|en que consiste|que tipos|cuales son|como|que pasa|que es|que son|para que|donde (se|puedo|esta la)|se puede|puedo|explicame|ayuda|que hago|por que|cual es la diferencia|que significa|a que se refiere|que quiere decir|como se|como le|me puedes explicar|dime como)\b/.test(t) && !/\b(como (se|puedo|hago|le hago)|que significa|para que sirve|que es un|que es una)\b/.test(t)) return false;
+  const q = t.split(" ").filter((x) => (x.length > 2 || x === "qr") && !VS_STOP.has(x)).map((x) => VS_SYN[x] || x); if (!q.length) return false;
+  const idx = vsIndex(), N = idx.length, df = vsDf(idx), whatIs = /^(que es|que son|que significa|a que se refiere|que quiere decir)\b/.test(t), how = /^(como|puedo|se puede|que hago|dime como|me puedes explicar)\b/.test(t);
+  const p5 = vsSt;
+  let best = null, bs = 0, second = 0, loose = null, ls = 0;
+  for (const e of idx) {
+    let sc = 0, hit = 0, th = false;
+    for (const x of q) {
+      let m = 0, y0 = x;
+      if (e.w.has(x)) m = 1; else if (x.length >= 4) for (const y of e.w) if (y.length >= 4 && p5(y) === p5(x)) { m = 0.8; y0 = y; break; }
+      if (!m && e.lw.size) { if (e.lw.has(x)) m = 0.45; else if (x.length >= 4) for (const y of e.lw) if (y.length >= 4 && p5(y) === p5(x)) { m = 0.35; y0 = y; break; } }
+      if (m) { hit++; if (e.tw.has(vsSt(x))) th = true; sc += m * Math.log(1 + N / (df.get(y0) || df.get(p5(y0)) || 1)) * (e.tw.has(vsSt(x)) ? 2 : 1); }
+    }
+    if (!hit) continue;
+    const cov = hit / q.length; let f = sc * (0.4 + cov);
+    if (e.kind === "def") { if (whatIs && e.key && t.includes(e.key)) f += 4; else if (how) f *= 0.4; }
+    if (e.kind === "tema" && how) f *= 1.15;
+    if (f > ls && cov >= 0.25) { ls = f; loose = e; }
+    if (!th || cov < 0.34) continue;
+    if (e.kind === "lib" && how) f *= 0.75;
+    if (f > bs) { if (!best || !vsSame(best, e)) second = bs; bs = f; best = e; } else if (f > second && !vsSame(best, e)) second = f;
+  }
+  // solo contesta sola si está segura; si hay duda y hay IA, que la IA razone (ya tiene el manual completo)
+  const sure = best && bs >= 2.5 && bs >= second * 1.05;
+  if (!sure) { if (vaUseAI() || !loose || ls < 2) return false; best = loose; bs = ls; vaChatSay((navigator.onLine === false ? "Sin internet, lo más parecido" : "Lo más parecido") + " que tengo es esto: " + (loose.ans.length > 380 ? loose.ans.slice(0, 380).replace(/\s+\S*$/, "") + "…" : loose.ans)); return true; }
+  if (!best || bs < 2.5) return false;
+  vaChatSay(best.ans.length > 420 ? best.ans.slice(0, 420).replace(/\s+\S*$/, "") + "… Para ver todo, abre la Ayuda en Más." : best.ans);
+  return true;
+}
+
+/* ---------- v21: cuentas, fecha y hora, lo más caro y lo más antiguo: al instante y sin internet ---------- */
+function vaCalc(t) {
+  let m = t.match(/^(?:cuanto es|cuanto da|calcula|calculame|cuanto son|cuanto seria|dime cuanto es)\s+(.+)$/); if (!m) return null;
+  let e = " " + m[1].replace(/\$/g, "").replace(/\bpesos\b/g, "") + " "; const num = (x) => x.replace(/(\d),(?=\d{3}\b)/g, "$1");
+  e = num(e);
+  let r;
+  if ((r = e.match(/^\s*(\d+(?:\.\d+)?)\s*(?:por ciento|porciento|%)\s+de\s+(\d+(?:\.\d+)?)\s*$/))) return [+r[1] * +r[2] / 100, r[1] + " por ciento de " + r[2]];
+  if ((r = e.match(/^\s*(\d+(?:\.\d+)?)\s+(mas|con|sin)\s+iva\s*$/))) { const b = +r[1]; return r[2] === "sin" ? [b / 1.16, r[1] + " sin IVA"] : [b * 1.16, r[1] + " más IVA"]; }
+  if ((r = e.match(/^\s*(?:el\s+)?iva\s+de\s+(\d+(?:\.\d+)?)\s*$/))) return [+r[1] * 0.16, "el IVA de " + r[1]];
+  if ((r = e.match(/^\s*(?:la\s+)?raiz(?: cuadrada)? de\s+(\d+(?:\.\d+)?)\s*$/))) return [Math.sqrt(+r[1]), "la raíz de " + r[1]];
+  const ex = e.replace(/\bmultiplicado por\b|\bpor\b|\bx\b/g, "*").replace(/\bdividido entre\b|\bdividido por\b|\bentre\b/g, "/").replace(/\bmas\b/g, "+").replace(/\bmenos\b/g, "-").replace(/\bal cuadrado\b/g, "**2").replace(/\s+/g, "");
+  if (!/^[\d.+\-*/()]+$/.test(ex) || !/\d[+\-*/]/.test(ex) || ex.length > 60) return null;
+  const v = vaArith(ex); return Number.isFinite(v) ? [v, null] : null;
+}
+// evaluador pequeño de + - * / ** y paréntesis (sin eval: la política de seguridad de la app lo prohíbe)
+function vaArith(src) {
+  let i = 0; const peek = () => src[i], num = () => { const m = src.slice(i).match(/^\d+(\.\d+)?/); if (!m) throw 0; i += m[0].length; return +m[0]; };
+  const atom = () => { if (peek() === "(") { i++; const v = add(); if (src[i++] !== ")") throw 0; return v; } if (peek() === "-") { i++; return -atom(); } return num(); };
+  const pow = () => { const b = atom(); if (src.slice(i, i + 2) === "**") { i += 2; return Math.pow(b, pow()); } return b; };
+  const mul = () => { let v = pow(); while (peek() === "*" || peek() === "/") { const o = src[i++]; const r = pow(); v = o === "*" ? v * r : v / r; } return v; };
+  const add = () => { let v = mul(); while (peek() === "+" || peek() === "-") { const o = src[i++]; const r = mul(); v = o === "+" ? v + r : v - r; } return v; };
+  try { const v = add(); return i === src.length ? v : NaN; } catch (e) { return NaN; }
+}
+const vaNumTxt = (v) => { const a = Math.abs(v), d = a >= 100 || Number.isInteger(v) ? 0 : 2; return v.toLocaleString("es-MX", { maximumFractionDigits: d }); };
+function vaExtra(text, t) {
+  const say = (x) => vaChatSay(x);
+  const tc = String(text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[¿?¡!]/g, " ").replace(/\s+/g, " ").trim(), c = vaCalc(tc); if (c) { say((c[1] ? c[1].replace(/\b(\d{4,})\b/g, (x) => (+x).toLocaleString("es-MX")) + " es " : "Da ") + vaNumTxt(c[0]) + "."); return true; }
+  if (/^(que hora es|que horas son|me dices la hora|dime la hora)\b/.test(t)) { say("Son las " + new Date().toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" }) + "."); return true; }
+  if (/^(que dia es hoy|que fecha es hoy|a que estamos|que dia es|en que fecha estamos)\b/.test(t)) { say("Hoy es " + new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) + "."); return true; }
+  const sup = t.match(/^(?:cual es |que es |cual es el |dime )?(?:el |la |lo )?(?:bien |articulo |cosa )?(mas caro|mas cara|de mas valor|mas barato|mas barata|mas antiguo|mas antigua|mas viejo|mas vieja|mas nuevo|mas nueva|mas reciente)(?: (?:del|de la|de|en el|en la|en) (.+))?$/);
+  if (sup) {
+    const k = sup[1], rows = vaRows(), f = {}; let lab = "";
+    if (sup[2] && !/^(inventario|todo|plantel|conalep|escuela)$/.test(sup[2])) { const am = vaFindName(sup[2], "area"), pm = am && am.name ? null : vaFindName(sup[2], "persona"); if (am && am.name) { f.area = am.name; lab = " en " + scase(am.name); } else if (pm && pm.name) { f.resguardante = pm.name; lab = " de " + hname(pm.name); } else return false; }
+    const l = vaFiltra(rows, f); let x;
+    if (/car|valor/.test(k)) x = l.filter((y) => y.im > 0).sort((a, b) => b.im - a.im)[0];
+    else if (/barat/.test(k)) x = l.filter((y) => y.im > 0).sort((a, b) => a.im - b.im)[0];
+    else if (/antigu|viej/.test(k)) x = l.filter((y) => y.ts).sort((a, b) => a.ts - b.ts)[0];
+    else x = l.filter((y) => y.ts).sort((a, b) => b.ts - a.ts)[0];
+    if (!x) { say("No tengo datos suficientes para saberlo" + lab + "."); return true; }
+    say("Lo " + k.replace(/a$/, "o") + lab + " es " + (vaDesc(x.tok) || "un bien") + ", marbete " + vaSpokenMb(x.tok) + (x.im ? ", vale " + vrNum(x.im) + " pesos" : "") + (x.fe ? ", factura del " + x.fe : "") + (x.own !== C.SIN ? ", lo tiene " + tcase(x.own) : "") + ".");
+    return true;
+  }
+  return false;
+}
 function vaChatHear(text) {
   const t = vnorm(text), n = t ? t.split(" ").length : 0;
   VA.got = "";
@@ -2621,6 +2798,7 @@ function vaChatHear(text) {
     if (/\b(si|sip|claro|dale|hazlo|confirmo|confirmado|correcto|exacto|ok|okey|va|adelante|por favor)\b/.test(t) && !/\b(no|nel|nunca)\b/.test(t)) { p(); return; }
     if (/\b(no|nel|cancela|cancelalo|mejor no|olvidalo|detente)\b/.test(t)) { vaChatSay("Va, no hago nada."); return; }
   }
+  if (vaReflex(text, t) || vaExtra(text, t) || vaSaber(text, t)) return;
   if (!vaUseAI()) { vaChatSay(SET.ia === false ? "Activa «Voz con inteligencia artificial» en Más para que pueda contestar." : VA.aiOff ? vaAiWhy() : "No hay internet en este momento."); return; }
   vaThink(text, null);
 }
@@ -2656,7 +2834,7 @@ function vaRunChat(r) {
     }
     case "abrir_seccion": {
       const sec = r.seccion, sub = { resumen: "res", listas: "listas", propuestas: "sin", sugeridas: "sug", ya_en_baja: "ya", buscar: "bus" }[r.subseccion];
-      const go1 = { inicio: () => tab("home"), buscar: () => tab("search"), actividad: () => tab("act"), mas: () => tab("more"), salones: () => A.rooms(), escanear: () => A.scanlook(), bajas: () => { if (sub) U.bt = sub; if (U.view !== "bajas") go("bajas"); else VIEWS.bajas.draw(true); }, fotos: () => A.fotos(), fechas: () => A.fechas(), cerebro: () => A.cerebro(), herramientas: () => A.tools(), ayuda: () => { if (U.view !== "help") go("help"); } }[sec];
+      const go1 = { inicio: () => tab("home"), buscar: () => tab("search"), actividad: () => tab("act"), mas: () => tab("more"), salones: () => A.rooms(), escanear: () => A.scanlook(), bajas: () => { if (sub) U.bt = sub; if (U.view !== "bajas") go("bajas"); else VIEWS.bajas.draw(true); }, fotos: () => A.fotos(), fechas: () => A.fechas(), cerebro: () => A.cerebro(), ayuda: () => { if (U.view !== "help") go("help"); } }[sec];
       if (!go1) { say(r.decir || "No sé abrir esa pantalla."); return; }
       VA.chat.a = r.decir || ""; vaSay(r.decir || "Va.", () => closeLayer("asst")); setTimeout(() => { try { go1(); } catch (e) { console.error(e); } }, 420); return;
     }
@@ -2720,18 +2898,18 @@ function vaGreet() {
   const bits = [];
   if (pen > 0) bits.push("llevamos " + fmtN(t.rev) + " revisados y faltan " + fmtN(pen)); else bits.push("ya está todo revisado");
   if (bj.prop.length) bits.push("hay " + bj.prop.length + (bj.prop.length === 1 ? " baja propuesta" : " bajas propuestas"));
-  return "Hola " + n + ", soy Lua. " + (bits.length ? "Por cierto, " + bits.join(" y ") + ". " : "") + "¿En qué te ayudo?";
+  return "Hola " + n + ", soy Lumen. " + (bits.length ? "Por cierto, " + bits.join(" y ") + ". " : "") + "¿En qué te ayudo?";
 }
 function vaChatOpen() {
   if (VA.on) return;
   if (!vaUseAI()) { snack(navigator.onLine === false ? "Sin internet no puedo conversar. Intenta cuando tengas señal." : "Activa «Voz con inteligencia artificial» en Más.", { icon: "mic" }); return; }
   Object.assign(VA, { on: true, kind: "chat", ctx: "", list: [], i: 0, paused: false, finished: false, quiet: 0, bad: 0, log: [], area: "", heard: "", got: "", done: 0, note: "", mic: !!SRC, typing: false, thinking: false, confirm: null, aiFail: 0, aiOff: false, aiWhy: 0, lastT: "", lastAt: 0, said: "", chat: { q: "", a: "" } });
   VA.gen++;
-  let el = $("asst"); if (!el) { el = document.createElement("div"); el.id = "asst"; el.className = "asst"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Asistente Lua"); document.body.appendChild(el); }
+  let el = $("asst"); if (!el) { el = document.createElement("div"); el.id = "asst"; el.className = "asst"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Asistente Lumen"); document.body.appendChild(el); }
   el.hidden = false;
-  el.innerHTML = `<div class="va-top"><button class="gb" type="button" data-act="vaclose" aria-label="Cerrar la conversación">${ic("x")}</button><div class="g-t"><b>Lua</b><small>Tu asistente del inventario</small></div><span class="gb ghost" aria-hidden="true"></span></div>
+  el.innerHTML = `<div class="va-top"><button class="gb" type="button" data-act="vaclose" aria-label="Cerrar la conversación">${ic("x")}</button><div class="g-t"><b>Lumen</b><small>Tu asistente del inventario</small></div><span class="gb ghost" aria-hidden="true"></span></div>
     <div class="va-stage"><div class="va-card chat" id="vaCard"></div><div class="va-ear" id="vaEar" aria-live="polite"></div></div>
-    <form class="va-form" id="vaForm" autocomplete="off"><input id="vaTxt" type="text" enterkeyhint="send" autocapitalize="sentences" placeholder="Escribe tu pregunta…" aria-label="Escribe tu pregunta para Lua" maxlength="400"><button type="submit" class="va-send" aria-label="Enviar">${ic("arrow")}</button></form>
+    <form class="va-form" id="vaForm" autocomplete="off"><input id="vaTxt" type="text" enterkeyhint="send" autocapitalize="sentences" placeholder="Escribe tu pregunta…" aria-label="Escribe tu pregunta para Lumen" maxlength="400"><button type="submit" class="va-send" aria-label="Enviar">${ic("arrow")}</button></form>
     <div class="va-sec"><button type="button" data-act="varep">${ic("sound")}<span>Repetir</span></button><button type="button" data-act="vastop">${ic("x")}<span>Callar</span></button>${SRC ? `<button type="button" data-act="vapause" id="vaPz">${ic("mic")}<span>Pausa</span></button>` : ""}</div>`;
   const tx = el.querySelector("#vaTxt");
   el.querySelector("#vaForm").onsubmit = (e) => { e.preventDefault(); const v = tx.value.trim(); if (!v || VA.thinking) return; tx.value = ""; vaChatType(v); };
@@ -3161,32 +3339,7 @@ VIEWS.cerebro = {
   },
 };
 
-// ---- v18: Herramientas (catálogo de lo que viene) ----
-const HT = [
-  ["Borrador mágico", "wand", "Subes o fotografías cualquier documento y Lua detecta lo que sí sirve (datos, tablas, firmas) y borra manchas, sellos viejos, tachones y ruido. Te lo devuelve limpio.", "Siguiente"],
-  ["Plantillas", "doc", "Sube tus formatos (resguardos, listas de baja, oficios). Lua los guarda, rellena con los datos del inventario y los deja listos para imprimir.", "Siguiente"],
-  ["Aprender de mis trabajos", "spark", "Subes trabajos ya hechos; la app aprende cómo los quieres (formato, redacción, qué incluir y qué no) y los usa como modelo.", "Planeada"],
-  ["Editar y actualizar cambios", "edit", "Cambia un documento ya hecho diciéndolo con tu voz (“cambia la fecha”, “quita el salón 4”) y guarda cada versión.", "Planeada"],
-  ["Crear herramientas nuevas", "plus", "Pídele a Lua una herramienta (un contador, un formato, un reporte) y aparece aquí lista para usarse.", "Planeada"],
-  ["Comparar dos inventarios", "sync", "Detecta qué se agregó, se movió o desapareció entre dos fechas o dos archivos.", "Idea"],
-  ["Reportes automáticos", "chart", "Resumen por área o por persona en PDF o Excel con un toque.", "Idea"],
-  ["Etiquetas y códigos", "scan", "Genera etiquetas con código para pegar en los bienes.", "Idea"],
-];
-VIEWS.tools = {
-  root: false,
-  head: () => ({ t: "Herramientas", s: "Lo que viene a la app", back: true }),
-  mount(pg) {
-    let pr = {}; try { pr = JSON.parse(localStorage.getItem("ht_pri") || "{}"); } catch (e) {}
-    this.pr = pr; this.pg = pg; this.draw();
-  },
-  draw() {
-    const pr = this.pr;
-    this.pg.innerHTML = `<div class="ht"><p class="ht-i">Aquí quedan todas las herramientas nuevas. Marca con la estrella las que quieres primero y se construyen en ese orden.</p>${HT.map(([n, i, d, st], k) => `<div class="ht-c"><div class="ht-h">${ic(P[i] ? i : "spark")}<b>${n}</b><span class="ht-s s${st === "Siguiente" ? 1 : 0}">${st}</span><button type="button" class="ht-p${pr[k] ? " on" : ""}" data-act="htpri" data-k="${k}" aria-pressed="${!!pr[k]}" aria-label="Quiero esta primero">★</button></div><p>${d}</p></div>`).join("")}</div>`;
-  },
-};
 Object.assign(A, {
-  tools: () => goView("tools"),
-  htpri: (el) => { const v = VIEWS.tools; v.pr[el.dataset.k] = !v.pr[el.dataset.k]; try { localStorage.setItem("ht_pri", JSON.stringify(v.pr)); } catch (e) {} v.draw(); },
   cerebro: () => goView("cerebro"),
 });
 

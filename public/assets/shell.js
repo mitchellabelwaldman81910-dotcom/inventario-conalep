@@ -58,7 +58,7 @@ const NAV = [
   [null, [["inicio", "home", "Inicio"]]],
   ["Inventario", [["lista", "list", "Lista completa"], ["resguardantes", "people", "Resguardantes"], ["areas", "map", "Áreas"], ["cerebro", "spark", "Cerebro"]]],
   ["Revisión", [["vivo", "pulse", "En vivo"], ["analisis", "chart", "Análisis"], ["salud", "shield", "Salud de los datos"]]],
-  ["Herramientas", [["etiquetas", "qr", "Etiquetas QR"], ["importar", "upload", "Importar Excel"], ["historial", "clock", "Bitácora"]]],
+  ["Herramientas", [["herramientas", "spark", "Borrador y plantillas"], ["biblioteca", "file", "Biblioteca"], ["etiquetas", "qr", "Etiquetas QR"], ["importar", "upload", "Importar Excel"], ["historial", "clock", "Bitácora"]]],
 ];
 function buildShell() {
   const side = $("#side");

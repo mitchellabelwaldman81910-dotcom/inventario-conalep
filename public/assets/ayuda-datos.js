@@ -1,6 +1,6 @@
 /* Guía de ayuda del inventario CONALEP: una sola fuente para la app del celular y el portal. */
 window.AYUDA = {
-  version: "19.0",
+  version: "21.0",
 
   /* Los 4 pasos de una revisión (se usan en la app, en el portal y en la guía inicial) */
   flujo: [
@@ -66,12 +66,23 @@ window.AYUDA = {
       tips: ["Escuchar solo funciona en <b>Chrome</b> (Android y computadora) y necesita internet. En otros navegadores la app igual te pregunta en voz alta y contestas con los botones.", "En lugares con ruido funciona peor: habla cerca del teléfono, normal, después de que termine la pregunta.", "Dentro de <b>Revisar uno por uno</b> sigue el micrófono de arriba para leer los bienes en voz alta."],
     },
     {
-      id: "conny", i: "mic", t: "Lua: la asistente por voz",
+      id: "calmo", i: "eye", t: "Modo tranquilo: una pantalla limpia",
+      q: "Quita animaciones, confeti y adornos para que la app se vea ordenada y rápida.",
+      kw: "tranquilo calma limpio caos animaciones confeti adornos simple ordenado lento rapido distrae",
+      pasos: [
+        "Ve a <b>Más → Apariencia</b> y enciende <b>Modo tranquilo</b>.",
+        "La app deja solo lo necesario: avance, revisión, escáner y bajas. Sin movimiento, sin confeti, sin dibujos de fondo y con menos atajos en Inicio.",
+        "Si algo te hace falta, sigue en <b>Más</b>. Puedes apagarlo cuando quieras."
+      ],
+    },
+    {
+      id: "conny", i: "mic", t: "Lumen: la asistente por voz",
       q: "Platica con ella, pregúntale lo que quieras del inventario y pídele que marque artículos.",
-      kw: "conny asistente voz inteligencia artificial ia hablar preguntar platicar chiste marcar baja cuantos quien tiene cuanto vale conversacion microfono",
+      kw: "conny lumen asistente voz inteligencia artificial ia hablar preguntar platicar chiste cuantos quien tiene cuanto vale conversacion microfono",
       pasos: [
         "Toca <b>Asistente</b> en Inicio, el micrófono junto al buscador de <b>Buscar</b>, o <b>Preguntarle al inventario</b> en Más. Ella te saluda y te dice cómo vas.",
         "Habla como con una persona. Pregunta datos: <b>«¿cuántas sillas hay?»</b>, <b>«¿quién tiene más computadoras?»</b>, <b>«¿cuánto vale el 730390?»</b>, <b>«¿qué hay en la bodega?»</b>. Ella consulta <b>todo el inventario</b> antes de contestar.",
+        "Lo más común lo contesta <b>al instante</b>, incluso sin internet: <b>«¿cuántas sillas hay?»</b>, <b>«¿dónde está el 730390?»</b>, <b>«¿cómo voy?»</b>, <b>«abre bajas»</b>. Lo que necesita pensar más lo consulta con la inteligencia artificial.",
         "Pídele cambios: <b>«marca que el 730390 no está»</b>, <b>«marca este artículo como presente»</b> (el último que abriste), <b>«propón la baja del 730390 por daño»</b>, <b>«quita la baja del 730390»</b>. Te confirma lo que hizo y con <b>«deshaz»</b> lo regresa a como estaba. Si dudó de cuál artículo era, primero te pregunta.",
         "También abre pantallas y empieza revisiones: <b>«abre las bajas sugeridas»</b>, <b>«ve a Inicio»</b>, <b>«revisa a Juan Pérez»</b>, <b>«abre el salón de sistemas»</b>.",
         "Pregúntale cómo se usa la app (<b>«¿cómo finalizo un inventario?»</b>), pídele un chiste o platica un rato: te recuerda lo que acaban de decir.",
@@ -82,7 +93,7 @@ window.AYUDA = {
     {
       id: "bajas", i: "archive", t: "Bajas de bienes",
       q: "Arma tus listas de baja con nombre, fecha y folio, y lleva la relación firmada.",
-      kw: "baja bajas dar de baja lista listas fecha de baja folio oficio desecho dañado obsoleto robo extravio donacion inservible propuesta imprimir relacion csv excel",
+      kw: "baja bajas proponer propon proponga dar de baja lista listas fecha de baja folio oficio desecho dañado obsoleto robo extravio donacion inservible propuesta imprimir relacion csv excel",
       pasos: [
         "Entra a <b>Bajas</b> desde Inicio o desde Más.",
         "Toca <b>Nueva lista de bajas</b>: ponle nombre (por ejemplo «Bajas de cómputo · noviembre»), la <b>fecha de baja</b>, un <b>folio u oficio</b> y quién es el responsable.",
@@ -299,6 +310,17 @@ window.AYUDA = {
   /* ====================== PORTAL WEB ====================== */
   portal: [
     {
+      id: "herramientas", i: "spark", t: "Herramientas: Borrador mágico y Plantillas",
+      q: "Limpia documentos sucios y llena tus formatos de Word con los datos del inventario.",
+      kw: "herramientas borrador magico limpiar documento excel word sucio plantillas formato resguardo llenar zip comparar aprender",
+      pasos: [
+        "En el menú de la izquierda, en <b>Herramientas</b>, toca <b>Borrador y plantillas</b> (también hay un botón en Inicio).",
+        "<b>Borrador mágico</b>: sube un Excel, CSV o Word. Quita totales, firmas, títulos, filas vacías y repetidos; corrige nombres, fechas e importes; te dice lo importante y lo compara con el inventario. Descarga el Excel limpio o mándalo a <b>Importar</b>.",
+        "<b>Plantillas</b>: genera el resguardo de una persona o los bienes de un área, o todos en un ZIP. Puedes subir tu propio Word con campos como <b>{{persona}}</b>, <b>{{area}}</b>, <b>{{fecha}}</b> y en una fila de tabla <b>{{marbete}}</b> y <b>{{descripcion}}</b>.",
+        "Aprende de lo que aceptas o rechazas. Todavía no lee PDF ni fotos: conviértelos a Excel o Word."
+      ],
+    },
+    {
       id: "inicio", i: "home", t: "Inicio y el mosaico",
       q: "Todo el inventario de un vistazo.",
       kw: "inicio mosaico tablero kpi resumen avance tarjetas detecte",
@@ -508,6 +530,24 @@ window.AYUDA = {
   ],
 
   glosario: [
+    ["Alta", "Registrar un bien nuevo en el inventario (compra, donación recibida o transferencia), con su marbete, factura, fecha, importe, cuenta contable, área y resguardante."],
+    ["Baja", "Retirar un bien del inventario por daño sin reparación, obsolescencia, desecho, robo o extravío, siniestro, donación u otra causa. Se justifica (dictamen, fotos, acta si fue robo), la autoriza el área o comité correspondiente y se refleja en la contabilidad."],
+    ["Conciliación físico-contable", "Comparar lo que se encontró físicamente en el levantamiento con lo que dice el registro contable, e investigar y regularizar las diferencias."],
+    ["Levantamiento físico", "Recorrer los lugares y revisar uno por uno los bienes para confirmar que existen, dónde están, quién los tiene y en qué estado. Se hace al menos una vez al año."],
+    ["Sobrante", "Bien que se encontró físicamente pero no aparece en la lista. Hay que registrarlo o aclarar de dónde viene."],
+    ["Faltante", "Bien que está en la lista pero no apareció en el levantamiento. Se busca, se aclara y, si no aparece, se procede como extravío."],
+    ["Depreciación", "Reparto del costo de un bien a lo largo de su vida útil. En línea recta: costo entre años de vida útil. El CONAC publicó parámetros de referencia (DOF 15/08/2012); consulta la guía vigente para cifras oficiales."],
+    ["Vida útil", "Tiempo estimado en que un bien sirve. Referencias comunes: mobiliario de oficina unos 10 años, equipo de cómputo unos 3 y vehículos unos 5."],
+    ["Cuenta contable", "Clave del plan de cuentas donde se registra el bien. Los bienes muebles van en el grupo 1.2.4 (por ejemplo 1241 mobiliario y equipo de administración, 1242 mobiliario y equipo educacional)."],
+    ["CONAC", "Consejo Nacional de Armonización Contable: emite las normas de contabilidad gubernamental, incluidas las de registro y valuación de bienes."],
+    ["LGCG", "Ley General de Contabilidad Gubernamental: obliga a registrar los bienes, levantar el inventario físico y conciliarlo con la contabilidad."],
+    ["UMA", "Unidad de Medida y Actualización: referencia económica en pesos que se actualiza cada año. Los bienes muebles de menos de 70 UMA pueden registrarse como gasto, con control administrativo."],
+    ["Dictamen de baja", "Documento técnico que explica por qué un bien ya no sirve o no conviene repararlo; sustenta la baja."],
+    ["Destino final", "Lo que pasa con un bien dado de baja: enajenación (venta), donación, transferencia o destrucción, según la normativa."],
+    ["Acta administrativa", "Documento que deja constancia de un hecho (robo, extravío, entrega de bienes) con fecha, lugar, participantes y firmas."],
+    ["Factura", "Comprobante de compra del bien: da el proveedor, la fecha y el importe que se usan en el registro."],
+    ["Número de serie", "Código único del fabricante en equipos (computadoras, proyectores). Sirve para identificar el bien si la etiqueta se pierde."],
+    ["Transferencia", "Paso de un bien a otra área, plantel o dependencia, con su documentación."],
     ["Marbete", "La etiqueta con número (y QR) que tiene pegado cada bien. Es su identificador único."],
     ["Bien o artículo", "Cada mueble o equipo del inventario: una silla, un monitor, un escritorio…"],
     ["Resguardante", "La persona responsable de cuidar un grupo de bienes. Cada bien está a nombre de uno."],

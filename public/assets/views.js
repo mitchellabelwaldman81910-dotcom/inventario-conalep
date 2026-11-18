@@ -33,7 +33,7 @@ U.route("inicio", () => {
   const el = h(`<div class="home"></div>`);
   const hr = new Date().getHours(); const saludo = hr < 12 ? "Buenos días" : hr < 19 ? "Buenas tardes" : "Buenas noches";
   const today = cap(new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" }));
-  el.innerHTML = `<div class="hello"><div><h1>${saludo}, ${esc(firstName(D.user))}.</h1><p id="hSub">${esc(today)}</p></div><div class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="hScan">${icon("qr")}<span>Escanear</span></button><a class="btn" href="#/pantalla" id="hTv">${icon("tv")}<span>Modo pantalla</span></a><a class="btn" href="#/importar">${icon("upload")}<span>Importar Excel</span></a><a class="btn pri" href="#/lista">${icon("list")}<span>Abrir la lista</span></a></div></div>
+  el.innerHTML = `<div class="hello"><div><h1>${saludo}, ${esc(firstName(D.user))}.</h1><p id="hSub">${esc(today)}</p></div><div class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="hScan">${icon("qr")}<span>Escanear</span></button><a class="btn" href="#/pantalla" id="hTv">${icon("tv")}<span>Modo pantalla</span></a><a class="btn" href="#/herramientas">${icon("spark")}<span>Herramientas</span></a><a class="btn" href="#/importar">${icon("upload")}<span>Importar Excel</span></a><a class="btn pri" href="#/lista">${icon("list")}<span>Abrir la lista</span></a></div></div>
   <section class="board" aria-labelledby="bT"><div class="board-h"><div><h2 id="bT">Todo el inventario, artículo por artículo</h2><p id="bSub"></p></div><div class="board-c"><div class="seg" id="mMode" role="group" aria-label="Colorear por">${[["inv", "Revisión"], ["est", "Estado físico"], ["val", "Valor"], ["edad", "Antigüedad"], ["datos", "Datos"]].map(([k, l]) => `<button type="button" data-m="${k}">${l}</button>`).join("")}</div><div class="seg" id="mBy" role="group" aria-label="Agrupar por">${[["rc", "Resguardante"], ["ar", "Área"], ["cu", "Cuenta"]].map(([k, l]) => `<button type="button" data-b="${k}">${l}</button>`).join("")}</div><button class="btn rp-open" type="button" id="mPlay">${icon("play")}<span>Reproducir la revisión</span></button></div></div><div id="mos"></div><div class="rp" id="rp" hidden></div><div class="board-k" id="mKey"></div></section>
   <div class="kpis" id="kpis"></div>
   <div class="grid g2"><section class="ask" id="ask"></section><section class="pnl"><div class="pnl-h"><div><h2>Lo que detecté</h2><p>Revisión automática de todo el inventario.</p></div><a class="link" href="#/salud">Ver todo${icon("right")}</a></div><ul class="ins" id="ins"></ul></section></div>
@@ -893,7 +893,7 @@ U.route("importar", () => {
   $("#bk", el).onclick = () => { F.save(`respaldo_inventario_${F.stamp()}.json`, D.backupJSON(), "application/json"); U.toast("Respaldo descargado. Guárdalo en tu Drive o USB.", { kind: "ok" }); };
   $("#all", el).onclick = (e) => busyBtn(e.currentTarget, () => S.exportAll());
   $("#tpl", el).onclick = async () => { F.save("plantilla_inventario.xlsx", await F.xlsx([{ name: "Artículos", rows: [D.inv.h.map((x) => ({ v: x, s: "head" }))], cols: D.inv.h.map((x) => (/descrip/i.test(x) ? 46 : /proveedor|[aá]rea|resguard/i.test(x) ? 30 : 16)), freeze: 1 }])); U.toast("Plantilla descargada.", { kind: "ok" }); };
-  return { el, title: "Importar Excel" };
+  return { el, title: "Importar Excel", after() { if (U.pendingImport) { const f = U.pendingImport; U.pendingImport = null; handle(f); } } };
 });
 
 /* ================= BITÁCORA ================= */
